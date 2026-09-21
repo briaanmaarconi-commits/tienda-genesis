@@ -41,7 +41,7 @@ export const useSales = (filters?: { status?: string; from?: string; to?: string
     queryFn: async () => {
       let q = supabase
         .from("sales")
-        .select("*, customer:customers(id,name,phone,email), payment_method:payment_methods(name), shipping_method:shipping_methods(name), items:sale_items(id,product_name,unit_price,quantity,subtotal)")
+        .select("*, customer:customers(id,name,phone,email), payment_method:payment_methods(name), shipping_method:shipping_methods(name), items:sale_items(id,product_id,product_name,unit_price,unit_cost,quantity,subtotal)")
         .order("created_at", { ascending: false });
       if (filters?.status && filters.status !== "all") q = q.eq("status", filters.status as any);
       if (filters?.from) q = q.gte("created_at", filters.from);
@@ -58,6 +58,16 @@ export const useSales = (filters?: { status?: string; from?: string; to?: string
         );
       }
       return list;
+    },
+  });
+
+export const useExpenses = () =>
+  useQuery({
+    queryKey: ["expenses"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("expenses").select("*").order("expense_date", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
     },
   });
 

@@ -30,6 +30,7 @@ const AdminSales = lazy(() => import("./pages/admin/AdminSales"));
 const AdminSaleNew = lazy(() => import("./pages/admin/AdminSaleNew"));
 const AdminCustomers = lazy(() => import("./pages/admin/AdminCustomers"));
 const AdminMetrics = lazy(() => import("./pages/admin/AdminMetrics"));
+const AdminExpenses = lazy(() => import("./pages/admin/AdminExpenses"));
 const AdminPaymentMethods = lazy(() => import("./pages/admin/AdminPaymentMethods"));
 const AdminShippingMethods = lazy(() => import("./pages/admin/AdminShippingMethods"));
 const AdminShippingRates = lazy(() => import("./pages/admin/AdminShippingRates"));
@@ -74,6 +75,7 @@ const App = () => (
                   <Route path="ventas/nueva" element={<AdminSaleNew />} />
                   <Route path="clientes" element={<AdminCustomers />} />
                   <Route path="metricas" element={<AdminMetrics />} />
+                  <Route path="gastos" element={<AdminExpenses />} />
                   <Route path="metodos-pago" element={<AdminPaymentMethods />} />
                   <Route path="metodos-envio" element={<AdminShippingMethods />} />
                   <Route path="envios/tarifas" element={<AdminShippingRates />} />

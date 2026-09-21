@@ -578,6 +578,7 @@ export type Database = {
           active: boolean
           category_id: string | null
           compare_at_price: number | null
+          cost: number
           created_at: string
           description: string | null
           featured: boolean
@@ -599,6 +600,7 @@ export type Database = {
           active?: boolean
           category_id?: string | null
           compare_at_price?: number | null
+          cost?: number
           created_at?: string
           description?: string | null
           featured?: boolean
@@ -620,6 +622,7 @@ export type Database = {
           active?: boolean
           category_id?: string | null
           compare_at_price?: number | null
+          cost?: number
           created_at?: string
           description?: string | null
           featured?: boolean
@@ -659,6 +662,7 @@ export type Database = {
           quantity: number
           sale_id: string
           subtotal: number
+          unit_cost: number
           unit_price: number
         }
         Insert: {
@@ -672,6 +676,7 @@ export type Database = {
           quantity?: number
           sale_id: string
           subtotal?: number
+          unit_cost?: number
           unit_price?: number
         }
         Update: {
@@ -685,6 +690,7 @@ export type Database = {
           quantity?: number
           sale_id?: string
           subtotal?: number
+          unit_cost?: number
           unit_price?: number
         }
         Relationships: [
@@ -932,6 +938,7 @@ export type Database = {
           address: string | null
           admin_notify_email: string | null
           email: string | null
+          employee_profit_pct: number
           facebook_url: string | null
           id: string
           info_content: string | null
@@ -954,6 +961,7 @@ export type Database = {
           address?: string | null
           admin_notify_email?: string | null
           email?: string | null
+          employee_profit_pct?: number
           facebook_url?: string | null
           id?: string
           info_content?: string | null
@@ -976,6 +984,7 @@ export type Database = {
           address?: string | null
           admin_notify_email?: string | null
           email?: string | null
+          employee_profit_pct?: number
           facebook_url?: string | null
           id?: string
           info_content?: string | null
@@ -992,6 +1001,33 @@ export type Database = {
           transfer_notes?: string | null
           updated_at?: string
           whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          description: string | null
+          expense_date: string
+          id: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
         }
         Relationships: []
       }

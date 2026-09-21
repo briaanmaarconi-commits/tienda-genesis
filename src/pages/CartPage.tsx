@@ -83,6 +83,8 @@ const CartPage = () => {
         const lineSubtotal = computeLineTotal(it.product, it.qty);
         return {
           product_name: `${it.product.name}${it.product.label ? ` (${it.product.label})` : ""}`,
+          product_slug: it.product.slug,
+          pack_units: it.product.units ?? null,
           unit_price: it.product.price,
           quantity: it.qty,
           subtotal: lineSubtotal,

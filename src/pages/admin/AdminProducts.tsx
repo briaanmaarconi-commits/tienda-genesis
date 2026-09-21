@@ -35,7 +35,7 @@ const AdminProducts = () => {
   const refresh = () => { refetch(); qc.invalidateQueries({ queryKey: ["products"] }); };
 
   const newProduct = () => setEditing({
-    name: "", slug: "", description: "", price: 0, category_id: null,
+    name: "", slug: "", description: "", price: 0, cost: 0, category_id: null,
     compare_at_price: null, sale_starts_at: null, sale_ends_at: null,
     stock: 0, featured: false, active: true, product_type: "standard",
     images: [] as { url: string; sort_order: number }[],
@@ -49,6 +49,7 @@ const AdminProducts = () => {
       ...rest,
       slug: rest.slug || slugify(rest.name),
       price: Number(rest.price) || 0,
+      cost: Number(rest.cost) || 0,
       stock: Number(rest.stock) || 0,
       compare_at_price: rest.compare_at_price === "" || rest.compare_at_price == null ? null : Number(rest.compare_at_price),
       sale_starts_at: rest.sale_starts_at || null,
@@ -172,9 +173,16 @@ const AdminProducts = () => {
             <div><Label>Slug</Label><Input className="mt-2" value={editing.slug || ""} onChange={(e) => setEditing({ ...editing, slug: slugify(e.target.value) })} /></div>
             <div><Label>Descripción</Label><Textarea className="mt-2" value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></div>
 
-            <div>
-              <Label>Stock total (opcional)</Label>
-              <Input className="mt-2" type="number" min="0" value={editing.stock ?? 0} onChange={(e) => setEditing({ ...editing, stock: e.target.value })} />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Stock total (opcional)</Label>
+                <Input className="mt-2" type="number" min="0" value={editing.stock ?? 0} onChange={(e) => setEditing({ ...editing, stock: e.target.value })} />
+              </div>
+              <div>
+                <Label>Costo por unidad</Label>
+                <Input className="mt-2" type="number" min="0" placeholder="0" value={editing.cost ?? 0} onChange={(e) => setEditing({ ...editing, cost: e.target.value })} />
+                <p className="mt-1 text-xs text-muted-foreground">Para calcular el margen en Métricas. Si el producto tiene variantes con más unidades (ej: pack x10), el costo se multiplica automáticamente.</p>
+              </div>
             </div>
 
             <div className="rounded-xl border bg-muted/30 p-3 space-y-3">

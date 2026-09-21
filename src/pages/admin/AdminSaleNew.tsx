@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { formatPrice } from "@/lib/helpers";
 import { useQueryClient } from "@tanstack/react-query";
 
-type LineItem = { product_id: string | null; product_name: string; unit_price: number; quantity: number };
+type LineItem = { product_id: string | null; product_name: string; unit_price: number; quantity: number; unit_cost: number };
 
 const AdminSaleNew = () => {
   const nav = useNavigate();
@@ -39,14 +39,14 @@ const AdminSaleNew = () => {
   const shippingCost = ship ? Number(ship.cost) : 0;
   const total = subtotal + surcharge + shippingCost;
 
-  const addItem = () => setItems([...items, { product_id: null, product_name: "", unit_price: 0, quantity: 1 }]);
+  const addItem = () => setItems([...items, { product_id: null, product_name: "", unit_price: 0, quantity: 1, unit_cost: 0 }]);
   const updateItem = (idx: number, patch: Partial<LineItem>) => setItems(items.map((it, i) => i === idx ? { ...it, ...patch } : it));
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
   const pickProduct = (idx: number, productId: string) => {
     const p: any = products.find((x: any) => x.id === productId);
     if (!p) return;
-    updateItem(idx, { product_id: p.id, product_name: p.name, unit_price: Number(p.price) });
+    updateItem(idx, { product_id: p.id, product_name: p.name, unit_price: Number(p.price), unit_cost: Number(p.cost) || 0 });
   };
 
   const submit = async () => {
@@ -69,7 +69,7 @@ const AdminSaleNew = () => {
       }).select().single();
       if (e1) throw e1;
       const { error: e2 } = await supabase.from("sale_items").insert(
-        items.map((it) => ({ sale_id: sale.id, product_id: it.product_id, product_name: it.product_name, unit_price: it.unit_price, quantity: it.quantity, subtotal: it.unit_price * it.quantity }))
+        items.map((it) => ({ sale_id: sale.id, product_id: it.product_id, product_name: it.product_name, unit_price: it.unit_price, unit_cost: it.unit_cost, quantity: it.quantity, subtotal: it.unit_price * it.quantity }))
       );
       if (e2) throw e2;
       toast.success("Venta creada");
