@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 23 86% 96%;
+    --foreground: 9 35% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 9 35% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 9 35% 20%;
+
+    /* Brand */
+    --primary: 9 38% 59%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 9 50% 70%;
+    --primary-dark: 9 40% 42%;
+
+    --secondary: 23 86% 88%;
+    --secondary-foreground: 9 40% 25%;
+
+    --muted: 23 70% 92%;
+    --muted-foreground: 9 20% 40%;
+
+    --accent: 23 86% 88%;
+    --accent-foreground: 9 40% 25%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 23 50% 85%;
+    --input: 23 50% 85%;
+    --ring: 9 38% 59%;
+
+    --radius: 1rem;
+
+    --shadow-card: 0 10px 30px -12px hsl(9 38% 59% / 0.25);
+    --gradient-hero: linear-gradient(135deg, hsl(9 38% 59%), hsl(23 86% 88%));
+  }
+
+  .dark {
+    --background: 9 25% 12%;
+    --foreground: 23 86% 96%;
+    --card: 9 25% 16%;
+    --card-foreground: 23 86% 96%;
+    --popover: 9 25% 16%;
+    --popover-foreground: 23 86% 96%;
+    --primary: 9 50% 65%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 23 40% 25%;
+    --secondary-foreground: 23 86% 96%;
+    --muted: 9 20% 20%;
+    --muted-foreground: 23 30% 70%;
+    --accent: 23 40% 25%;
+    --accent-foreground: 23 86% 96%;
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 9 20% 25%;
+    --input: 9 20% 25%;
+    --ring: 9 50% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  h1, h2, h3, h4 {
+    @apply font-bold tracking-tight;
+  }
+}

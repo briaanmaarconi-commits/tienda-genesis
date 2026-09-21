@@ -1,0 +1,1 @@
+UPDATE public.sales SET tracking_code='TEST123456789AR', tracking_carrier='Correo Argentino' WHERE order_number='1006';

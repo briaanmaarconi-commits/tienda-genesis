@@ -1,0 +1,1 @@
+DELETE FROM public.payment_methods WHERE id = '1f775570-609c-442a-a913-d07c27b58115';

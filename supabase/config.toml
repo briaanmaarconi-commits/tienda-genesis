@@ -1,0 +1,16 @@
+project_id = "ezvbqnpahgelmqvefqsw"
+
+[functions.mp-create-preference]
+verify_jwt = false
+
+[functions.mp-webhook]
+verify_jwt = false
+
+[functions.create-public-order]
+verify_jwt = false
+
+[functions.validate-coupon]
+verify_jwt = false
+
+[functions.send-admin-order-notification]
+verify_jwt = false

@@ -1,0 +1,1 @@
+ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS tracking_code text, ADD COLUMN IF NOT EXISTS tracking_carrier text;

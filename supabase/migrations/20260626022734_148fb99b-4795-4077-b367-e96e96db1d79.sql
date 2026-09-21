@@ -1,0 +1,1 @@
+UPDATE public.sales SET tracking_code=NULL, tracking_carrier=NULL WHERE order_number='1006';

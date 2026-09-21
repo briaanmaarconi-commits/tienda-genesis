@@ -1,0 +1,1 @@
+UPDATE public.site_settings SET admin_notify_email = 'genesisfotografias1@gmail.com';
