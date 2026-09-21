@@ -110,17 +110,46 @@ Deno.serve(async (req) => {
       .single();
     if (e1) throw e1;
 
-    const rows = items.map((it: any) => ({
-      sale_id: saleRow.id,
-      product_id: null,
-      product_name: String(it.product_name ?? "").slice(0, 300),
-      unit_price: Math.max(0, num(it.unit_price) || 0),
-      quantity: Math.max(1, Math.floor(num(it.quantity) || 1)),
-      subtotal: Math.max(0, num(it.subtotal) || 0),
-      custom_sticker_config: it.custom_sticker_config ?? null,
-      addons: it.addons ?? null,
-      photos: Array.isArray(it.photos) ? it.photos.slice(0, 500).map((u: any) => String(u).slice(0, 1000)) : null,
-    }));
+    // Resolve real products by slug (one query for all items) to link
+    // sale_items to the catalog and compute unit costs.
+    const slugs = Array.from(
+      new Set(
+        items
+          .map((it: any) => (typeof it?.product_slug === "string" ? it.product_slug.trim() : ""))
+          .filter((s: string) => s.length > 0)
+      )
+    );
+
+    const productsBySlug = new Map<string, { id: string; cost: number }>();
+    if (slugs.length > 0) {
+      const { data: products, error: eProd } = await supabase
+        .from("products")
+        .select("id, slug, cost")
+        .in("slug", slugs);
+      if (eProd) throw eProd;
+      for (const p of products ?? []) {
+        productsBySlug.set(p.slug, { id: p.id, cost: Number(p.cost) || 0 });
+      }
+    }
+
+    const rows = items.map((it: any) => {
+      const slug = typeof it?.product_slug === "string" ? it.product_slug.trim() : "";
+      const product = slug ? productsBySlug.get(slug) : undefined;
+      const packUnits = num(it.pack_units);
+      const units = packUnits && packUnits > 0 ? packUnits : 1;
+      return {
+        sale_id: saleRow.id,
+        product_id: product?.id ?? null,
+        product_name: String(it.product_name ?? "").slice(0, 300),
+        unit_price: Math.max(0, num(it.unit_price) || 0),
+        unit_cost: product ? Math.max(0, product.cost * units) : 0,
+        quantity: Math.max(1, Math.floor(num(it.quantity) || 1)),
+        subtotal: Math.max(0, num(it.subtotal) || 0),
+        custom_sticker_config: it.custom_sticker_config ?? null,
+        addons: it.addons ?? null,
+        photos: Array.isArray(it.photos) ? it.photos.slice(0, 500).map((u: any) => String(u).slice(0, 1000)) : null,
+      };
+    });
     const { error: e2 } = await supabase.from("sale_items").insert(rows as any);
     if (e2) throw e2;
 
