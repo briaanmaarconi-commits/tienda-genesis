@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { lovable } from "@/integrations/lovable";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -11,8 +11,11 @@ const AdminLogin = () => {
   if (session && isAdmin) return <Navigate to="/admin" replace />;
 
   const onGoogle = async () => {
-    const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/admin" });
-    if (r.error) toast.error("No se pudo iniciar sesión");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + "/admin" },
+    });
+    if (error) toast.error("No se pudo iniciar sesión");
   };
 
   return (
