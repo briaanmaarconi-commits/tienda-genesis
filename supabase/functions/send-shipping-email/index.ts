@@ -1,8 +1,7 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const GATEWAY_URL = 'https://connector-gateway.lovable.dev/resend';
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const RESEND_API_URL = 'https://api.resend.com/emails';
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'Genesis QR <ventas@genesisqr.com>';
 const LOGO_URL = 'https://ezvbqnpahgelmqvefqsw.supabase.co/storage/v1/object/public/branding/b8bb278e-fd8a-46c7-8a1e-6c880ec0f42f.png';
@@ -14,7 +13,7 @@ function isAndreani(c: string) { return c.toLowerCase().includes('andreani'); }
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   try {
-    if (!LOVABLE_API_KEY || !RESEND_API_KEY) {
+    if (!RESEND_API_KEY) {
       return new Response(JSON.stringify({ error: 'Missing API keys' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     const { sale_id, override_email } = await req.json();
@@ -70,9 +69,9 @@ Deno.serve(async (req) => {
   </div>
 </body></html>`;
 
-    const res = await fetch(`${GATEWAY_URL}/emails`, {
+    const res = await fetch(RESEND_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'X-Connection-Api-Key': RESEND_API_KEY },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
       body: JSON.stringify({ from: FROM_EMAIL, to: [email], subject: `Tu pedido #${sale.order_number} fue enviado 🚚`, html }),
     });
     const body = await res.json();
