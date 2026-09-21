@@ -1,4 +1,6 @@
-// Lista de sucursales Andreani cercanas a un código postal (endpoint público)
+// Lista de sucursales Andreani cercanas a un código postal.
+// El endpoint público de sucursales de Andreani busca por lat/lng, no por CP,
+// así que primero geocodificamos el CP con Nominatim (OpenStreetMap, sin API key).
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { z } from 'npm:zod@3';
 
@@ -25,7 +27,25 @@ Deno.serve(async (req) => {
     }
 
     const cp = parsed.data.postal_code;
-    const apiUrl = `https://envios.andreani.com/api/v1/Sucursales?codigoPostal=${encodeURIComponent(cp)}`;
+
+    const geoRes = await fetch(
+      `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(cp)}&country=Argentina&format=json&limit=1`,
+      { headers: { 'User-Agent': 'TiendaGenesisShipping/1.0 (contacto@genesisqr.com)' } }
+    );
+    if (!geoRes.ok) {
+      return new Response(JSON.stringify({ error: 'No se pudo geolocalizar el código postal' }), {
+        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const geoData = await geoRes.json();
+    const geo = Array.isArray(geoData) ? geoData[0] : null;
+    if (!geo?.lat || !geo?.lon) {
+      return new Response(JSON.stringify({ branches: [] }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const apiUrl = `https://www.andreani.com/api/sucursales/byCoordenadas?lat=${geo.lat}&lng=${geo.lon}`;
     const res = await fetch(apiUrl, { headers: { 'Accept': 'application/json' } });
 
     if (!res.ok) {
@@ -35,13 +55,13 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
-    const branches = (Array.isArray(data) ? data : data?.sucursales ?? []).map((s: any) => ({
-      id: String(s.id ?? s.codigo ?? s.sucursalId ?? ''),
-      name: s.descripcion ?? s.nombre ?? '',
-      address: s.direccion ?? s.calle ?? '',
-      locality: s.localidad ?? '',
-      province: s.provincia ?? '',
-      hours: s.horarioAtencion ?? s.horario ?? '',
+    const branches = (Array.isArray(data) ? data : []).map((s: any) => ({
+      id: String(s.id ?? s.idSucursal ?? ''),
+      name: s.descripcion ?? '',
+      address: s.direccionSucursal ?? '',
+      locality: '',
+      province: '',
+      hours: s.horarioDeAtencion ?? '',
     }));
 
     return new Response(JSON.stringify({ branches }), {

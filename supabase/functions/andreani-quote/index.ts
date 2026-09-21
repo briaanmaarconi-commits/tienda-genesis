@@ -1,5 +1,5 @@
 // Cotizador público de Andreani (no requiere credenciales)
-// Usa el endpoint del sitio andreani.com que cotiza envíos al consumidor final.
+// Usa el endpoint que usa el propio cotizador público en andreani.com/?tab=cotizar-envio
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { z } from 'npm:zod@3';
 
@@ -14,6 +14,11 @@ const BodySchema = z.object({
   delivery_type: z.enum(['domicilio', 'sucursal']).default('domicilio'),
 });
 
+// ID del tipo de envío "Paquetería" tal como lo usa el cotizador público de
+// andreani.com. Es un valor fijo del formulario público, no ligado a ninguna
+// cuenta ni credencial.
+const TIPO_DE_ENVIO_ID = '9c16612c-a916-48cf-9fbb-dbad2b097e9e';
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -26,23 +31,19 @@ Deno.serve(async (req) => {
     }
     const p = parsed.data;
 
-    // Endpoint público de cotización de Andreani.
-    // Estructura observada del cotizador del sitio andreani.com
-    const url = 'https://cotizador-api.andreani.com/v1/Tarifas';
+    const url = 'https://www.andreani.com/api/cotizador/prices';
     const body = {
-      cpOrigen: p.postal_code_origin,
-      cpDestino: p.postal_code_destination,
-      contrato: p.delivery_type === 'sucursal'
-        ? '400006611' // Estándar a sucursal (público)
-        : '400006610', // Estándar a domicilio (público)
-      cliente: '',
+      codigoPostalOrigen: p.postal_code_origin,
+      codigoPostalDestino: p.postal_code_destination,
+      tipoDeEnvioId: TIPO_DE_ENVIO_ID,
       bultos: [{
-        kilos: p.weight_kg,
-        largoCm: p.length_cm,
-        anchoCm: p.width_cm,
-        altoCm: p.height_cm,
-        valorDeclarado: p.declared_value,
-        volumenCm: p.length_cm * p.width_cm * p.height_cm,
+        itemId: crypto.randomUUID(),
+        altoCm: String(p.height_cm),
+        anchoCm: String(p.width_cm),
+        largoCm: String(p.length_cm),
+        peso: String(Math.round(p.weight_kg * 1000)),
+        unidad: 'grs',
+        valorDeclarado: String(Math.round(p.declared_value)),
       }],
     };
 
@@ -62,16 +63,22 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
-    // Normalizamos la respuesta
-    const cost = Number(data?.tarifaConIva?.total ?? data?.tarifa?.total ?? data?.total ?? 0);
-    const estimatedDays = data?.plazoEntrega ?? data?.tiempoDeEntrega ?? null;
+    // Respuesta: [{"type":"branch","price":N},{"type":"home","price":N}]
+    const wantType = p.delivery_type === 'sucursal' ? 'branch' : 'home';
+    const match = Array.isArray(data) ? data.find((d: any) => d?.type === wantType) : null;
+    const cost = Number(match?.price ?? 0);
+
+    if (!cost) {
+      return new Response(JSON.stringify({ error: 'Sin tarifa disponible', raw: data }), {
+        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     return new Response(JSON.stringify({
       cost,
       currency: 'ARS',
-      estimated_days: estimatedDays,
+      estimated_days: null,
       delivery_type: p.delivery_type,
-      raw: data,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e?.message ?? e) }), {
