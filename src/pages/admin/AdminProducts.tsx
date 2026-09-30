@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useProducts } from "@/hooks/useShopData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,8 +44,8 @@ const AdminProducts = () => {
 
   const save = async () => {
     if (!editing.name) return toast.error("Nombre requerido");
-    const { images, packs, category, sticker_folders, ...rest } = editing;
-    const payload: any = {
+    const { images, packs, category, sticker_folders, id, ...rest } = editing;
+    const payload = {
       ...rest,
       slug: rest.slug || slugify(rest.name),
       price: Number(rest.price) || 0,
@@ -54,53 +54,29 @@ const AdminProducts = () => {
       compare_at_price: rest.compare_at_price === "" || rest.compare_at_price == null ? null : Number(rest.compare_at_price),
       sale_starts_at: rest.sale_starts_at || null,
       sale_ends_at: rest.sale_ends_at || null,
+      images: (images ?? []).map((im: any) => ({
+        url: im.url,
+        focal_x: typeof im.focal_x === "number" ? im.focal_x : Number(im.focal_x) || 50,
+        focal_y: typeof im.focal_y === "number" ? im.focal_y : Number(im.focal_y) || 50,
+        zoom: typeof im.zoom === "number" ? im.zoom : Number(im.zoom) || 1,
+        fit: im.fit || "cover",
+      })),
+      packs: (packs ?? []).map((p: any) => ({
+        units: p.units === "" || p.units == null ? null : Number(p.units),
+        label: p.label ? String(p.label).trim() : null,
+        price: Number(p.price) || 0,
+        photos_required: p.photos_required === "" || p.photos_required == null ? null : Number(p.photos_required),
+        compare_at_price: p.compare_at_price === "" || p.compare_at_price == null ? null : Number(p.compare_at_price),
+        sale_starts_at: p.sale_starts_at || null,
+        sale_ends_at: p.sale_ends_at || null,
+      })),
     };
-    delete payload.created_at; delete payload.updated_at;
 
-    let productId = editing.id;
-    if (productId) {
-      const { error } = await supabase.from("products").update(payload).eq("id", productId);
-      if (error) return toast.error(error.message);
-    } else {
-      const { data, error } = await supabase.from("products").insert(payload).select().single();
-      if (error) return toast.error(error.message);
-      productId = data.id;
-    }
-
-    // Sync images
-    await supabase.from("product_images").delete().eq("product_id", productId);
-    if (images?.length) {
-      await supabase.from("product_images").insert(
-        images.map((im: any, i: number) => ({
-          product_id: productId,
-          url: im.url,
-          sort_order: i,
-          focal_x: typeof im.focal_x === "number" ? im.focal_x : 50,
-          focal_y: typeof im.focal_y === "number" ? im.focal_y : 50,
-          zoom: typeof im.zoom === "number" ? im.zoom : 1,
-          fit: im.fit || "cover",
-        }))
-      );
-    }
-
-    // Sync packs / variants
-    await supabase.from("product_packs").delete().eq("product_id", productId);
-    if (packs?.length) {
-      await supabase.from("product_packs").insert(
-        packs
-          .filter((p: any) => Number(p.units) > 0 || (p.label && String(p.label).trim()))
-          .map((p: any, i: number) => ({
-            product_id: productId,
-            units: p.units ? Number(p.units) : null,
-            label: p.label ? String(p.label).trim() : null,
-            price: Number(p.price) || 0,
-            photos_required: p.photos_required ? Number(p.photos_required) : null,
-            compare_at_price: p.compare_at_price === "" || p.compare_at_price == null ? null : Number(p.compare_at_price),
-            sale_starts_at: p.sale_starts_at || null,
-            sale_ends_at: p.sale_ends_at || null,
-            sort_order: i,
-          }))
-      );
+    try {
+      if (id) await api.put(`/admin/products/${id}`, payload);
+      else await api.post("/admin/products", payload);
+    } catch (e: any) {
+      return toast.error(e.message);
     }
 
     toast.success("Guardado");
@@ -109,7 +85,7 @@ const AdminProducts = () => {
 
   const remove = async (id: string) => {
     if (!confirm("¿Borrar producto?")) return;
-    await supabase.from("products").delete().eq("id", id);
+    await api.delete(`/admin/products/${id}`);
     refresh();
   };
 

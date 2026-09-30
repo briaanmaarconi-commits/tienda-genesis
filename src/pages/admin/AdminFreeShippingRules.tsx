@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useShippingMethods } from "@/hooks/useSales";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,11 +30,7 @@ const AdminFreeShippingRules = () => {
 
   const { data: rules = [] } = useQuery({
     queryKey: ["free_shipping_rules"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("free_shipping_rules" as any).select("*, shipping_method:shipping_methods(name)").order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () => api.get<any[]>("/admin/free-shipping-rules"),
   });
 
   const [open, setOpen] = useState(false);
@@ -64,19 +60,23 @@ const AdminFreeShippingRules = () => {
       postal_code_to: form.postal_code_to || null,
       active: form.active,
     };
-    const op = editing
-      ? supabase.from("free_shipping_rules" as any).update(payload).eq("id", editing.id)
-      : supabase.from("free_shipping_rules" as any).insert(payload);
-    const { error } = await op;
-    if (error) return toast.error(error.message);
+    try {
+      if (editing) await api.put(`/admin/free-shipping-rules/${editing.id}`, payload);
+      else await api.post("/admin/free-shipping-rules", payload);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: ["free_shipping_rules"] });
     setOpen(false);
   };
 
   const del = async (id: string) => {
     if (!confirm("¿Eliminar regla?")) return;
-    const { error } = await supabase.from("free_shipping_rules" as any).delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.delete(`/admin/free-shipping-rules/${id}`);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: ["free_shipping_rules"] });
   };
 

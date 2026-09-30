@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { uploadPublicFile } from "@/lib/helpers";
 import { Button } from "@/components/ui/button";
 import { Loader2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
@@ -36,14 +36,13 @@ const PhotoUploader = ({ required, value, onChange }: Props) => {
           toast.error(`${file.name}: máximo ${MAX_MB}MB`);
           continue;
         }
-        const ext = file.name.split(".").pop() || "jpg";
-        const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error } = await supabase.storage.from("customer-photos").upload(path, file, {
-          contentType: file.type,
-          upsert: false,
-        });
-        if (error) {
-          toast.error(error.message);
+        let path: string;
+        try {
+          const res = await uploadPublicFile("customer-photos", file);
+          if (!res.path) throw new Error("Error al subir");
+          path = res.path;
+        } catch (e: any) {
+          toast.error(e.message);
           continue;
         }
         // Private bucket: store the object path, preview locally.

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { formatPrice } from "@/lib/helpers";
 import SaleDetailDialog from "@/components/admin/SaleDetailDialog";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -48,8 +48,11 @@ const AdminSales = () => {
 
   const updateStatus = async (sale: any, newStatus: string) => {
     if (newStatus === sale.status) return;
-    const { error } = await supabase.from("sales").update({ status: newStatus as any }).eq("id", sale.id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.put(`/admin/sales/${sale.id}/status`, { status: newStatus });
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     toast.success("Estado actualizado");
     qc.invalidateQueries({ queryKey: ["sales"] });
   };
@@ -64,18 +67,17 @@ const AdminSales = () => {
     if (!trackingFor) return;
     if (!trkCode.trim()) return toast.error("Ingresá el código de seguimiento");
     setSavingTrk(true);
-    const { error } = await supabase.from("sales").update({
-      status: "enviada" as any,
-      tracking_code: trkCode.trim(),
-      tracking_carrier: trkCarrier,
-    } as any).eq("id", trackingFor.id);
-    if (error) { setSavingTrk(false); return toast.error(error.message); }
-    if (trackingFor.customer?.email) {
-      const { error: mailErr } = await supabase.functions.invoke("send-shipping-email", { body: { sale_id: trackingFor.id } });
-      if (mailErr) toast.error("Envío guardado pero falló el email: " + mailErr.message);
+    try {
+      const { email_result: emailResult } = await api.post<{ email_result: { ok: boolean; error?: string } | null }>(
+        `/admin/sales/${trackingFor.id}/confirm-tracking`,
+        { tracking_code: trkCode.trim(), tracking_carrier: trkCarrier },
+      );
+      if (emailResult === null) toast.success("Envío actualizado (cliente sin email)");
+      else if (!emailResult.ok) toast.error("Envío guardado pero falló el email: " + emailResult.error);
       else toast.success("Envío guardado y email enviado");
-    } else {
-      toast.success("Envío actualizado (cliente sin email)");
+    } catch (e: any) {
+      setSavingTrk(false);
+      return toast.error(e.message);
     }
     setSavingTrk(false);
     setTrackingFor(null);

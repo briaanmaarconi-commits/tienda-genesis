@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,26 +13,14 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 const useProductsList = () =>
   useQuery({
     queryKey: ["admin-products-list"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("id,name,slug").order("name");
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () => api.get<any[]>("/admin/products-list"),
   });
 
 const useAddonGroups = (productId?: string) =>
   useQuery({
     queryKey: ["addon_groups", productId],
     enabled: !!productId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("product_addon_groups")
-        .select("*, options:product_addon_options(*)")
-        .eq("product_id", productId!)
-        .order("sort_order");
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () => api.get<any[]>("/admin/product-addon-groups", { product_id: productId }),
   });
 
 const AdminProductAddons = () => {
@@ -50,25 +38,31 @@ const AdminProductAddons = () => {
   const addGroup = async () => {
     const name = prompt("Nombre del grupo de adicionales (ej: Sistema QR)");
     if (!name) return;
-    const { error } = await supabase
-      .from("product_addon_groups")
-      .insert({ product_id: productId, name, required: true, sort_order: groups.length });
-    if (error) return toast.error(error.message);
+    try {
+      await api.post("/admin/product-addon-groups", { product_id: productId, name, sort_order: groups.length });
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     toast.success("Grupo creado");
     refresh();
   };
 
   const updateGroup = async (id: string, patch: any) => {
-    const { error } = await supabase.from("product_addon_groups").update(patch).eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.put(`/admin/product-addon-groups/${id}`, patch);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     refresh();
   };
 
   const deleteGroup = async (id: string) => {
     if (!confirm("¿Eliminar este grupo y todas sus opciones?")) return;
-    await supabase.from("product_addon_options").delete().eq("group_id", id);
-    const { error } = await supabase.from("product_addon_groups").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.delete(`/admin/product-addon-groups/${id}`);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     refresh();
   };
 
@@ -125,23 +119,30 @@ function GroupCard({
   const addOption = async () => {
     const n = prompt("Nombre de la opción");
     if (!n) return;
-    const { error } = await supabase
-      .from("product_addon_options")
-      .insert({ group_id: group.id, name: n, extra_price: 0, sort_order: options.length });
-    if (error) return toast.error(error.message);
+    try {
+      await api.post("/admin/product-addon-options", { group_id: group.id, name: n, sort_order: options.length });
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     onChange();
   };
 
   const saveOption = async (id: string, patch: any) => {
-    const { error } = await supabase.from("product_addon_options").update(patch).eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.put(`/admin/product-addon-options/${id}`, patch);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     onChange();
   };
 
   const delOption = async (id: string) => {
     if (!confirm("¿Eliminar opción?")) return;
-    const { error } = await supabase.from("product_addon_options").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.delete(`/admin/product-addon-options/${id}`);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     onChange();
   };
 

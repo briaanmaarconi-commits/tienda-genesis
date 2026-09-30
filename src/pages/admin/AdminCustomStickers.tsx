@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,24 +48,30 @@ function CrudSection({
     setForm(f);
     setOpen(true);
   };
+  const path = `/admin/${table.replace(/_/g, "-")}`;
+
   const save = async () => {
     const payload: any = { ...form };
     for (const fd of fields) {
       if (fd.type === "number") payload[fd.key] = Number(payload[fd.key]) || 0;
     }
-    const op = editing
-      ? supabase.from(table as any).update(payload).eq("id", editing.id)
-      : supabase.from(table as any).insert(payload);
-    const { error } = await op;
-    if (error) return toast.error(error.message);
+    try {
+      if (editing) await api.put(`${path}/${editing.id}`, payload);
+      else await api.post(path, payload);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: [table] });
     setOpen(false);
     toast.success("Guardado");
   };
   const del = async (id: string) => {
     if (!confirm("¿Eliminar?")) return;
-    const { error } = await supabase.from(table as any).delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.delete(`${path}/${id}`);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: [table] });
   };
 

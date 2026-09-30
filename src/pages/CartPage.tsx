@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Minus, Plus, Trash2, CheckCircle2, Tag, X } from "lucide-react";
 import { usePaymentMethods, useShippingMethods } from "@/hooks/useSales";
 import { validateCoupon } from "@/hooks/useCoupons";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSiteSettings } from "@/hooks/useShopData";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -94,39 +94,32 @@ const CartPage = () => {
         };
       });
 
-      const { data: order, error: orderErr } = await supabase.functions.invoke("create-public-order", {
-        body: {
-          customer: { name: form.name, phone: form.phone, email: form.email || null, address: form.address || null },
-          sale: {
-            payment_method_id: paymentId,
-            shipping_method_id: selectedQuote.method_id,
-            subtotal: total,
-            shipping_cost: shippingCost,
-            surcharge,
-            notes: form.notes || null,
-            shipping_postal_code: postalCode || null,
-            shipping_province: province || null,
-            shipping_locality: locality || null,
-            shipping_branch_id: branchId || null,
-            shipping_branch_name: branchName || null,
-          },
-          items: orderItems,
-          coupon_code: coupon?.code ?? null,
+      const order = await api.post<{ sale_id: string; transfer: any; error?: string }>("/checkout", {
+        customer: { name: form.name, phone: form.phone, email: form.email || null, address: form.address || null },
+        sale: {
+          payment_method_id: paymentId,
+          shipping_method_id: selectedQuote.method_id,
+          subtotal: total,
+          shipping_cost: shippingCost,
+          surcharge,
+          notes: form.notes || null,
+          shipping_postal_code: postalCode || null,
+          shipping_province: province || null,
+          shipping_locality: locality || null,
+          shipping_branch_id: branchId || null,
+          shipping_branch_name: branchName || null,
         },
+        items: orderItems,
+        coupon_code: coupon?.code ?? null,
       });
-      if (orderErr || !order?.sale_id) {
-        throw orderErr ?? new Error(order?.error || "No se pudo crear el pedido");
-      }
-      const sale = { id: order.sale_id as string };
+      const sale = { id: order.sale_id };
       if (order.transfer) setTransfer(order.transfer);
 
       if (pay?.provider === "mercadopago") {
-        const { data: mp, error: mpErr } = await supabase.functions.invoke("mp-create-preference", {
-          body: { sale_id: sale.id },
-        });
-        if (mpErr || !mp?.init_point) {
+        const mp = await api.post<{ init_point?: string }>("/mercadopago/create-preference", { sale_id: sale.id });
+        if (!mp?.init_point) {
           toast.error("No se pudo iniciar el pago con Mercado Pago");
-          throw mpErr ?? new Error("Sin init_point");
+          throw new Error("Sin init_point");
         }
         clear();
         window.location.href = mp.init_point;

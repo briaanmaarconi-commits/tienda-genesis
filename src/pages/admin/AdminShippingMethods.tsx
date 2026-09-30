@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -72,18 +72,22 @@ const AdminShippingMethods = () => {
       estimated_time: form.estimated_time || null,
       pickup_hours: form.pickup_hours || null,
     };
-    const op = editing
-      ? supabase.from("shipping_methods").update(payload).eq("id", editing.id)
-      : supabase.from("shipping_methods").insert(payload);
-    const { error } = await op;
-    if (error) return toast.error(error.message);
+    try {
+      if (editing) await api.put(`/admin/shipping-methods/${editing.id}`, payload);
+      else await api.post("/admin/shipping-methods", payload);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: ["shipping_methods"] });
     setOpen(false);
   };
   const del = async (id: string) => {
     if (!confirm("¿Eliminar?")) return;
-    const { error } = await supabase.from("shipping_methods").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.delete(`/admin/shipping-methods/${id}`);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: ["shipping_methods"] });
   };
 

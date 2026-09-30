@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSales, useExpenses } from "@/hooks/useSales";
 import { useSiteSettingsAdmin } from "@/hooks/useShopData";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { formatPrice } from "@/lib/helpers";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -109,8 +109,11 @@ const AdminMetrics = () => {
     if (employeePct === null || !settings?.id) return;
     const v = Number(employeePct);
     if (!Number.isFinite(v) || v < 0 || v > 100) return toast.error("Ingresá un porcentaje entre 0 y 100");
-    const { error } = await supabase.from("site_settings").update({ employee_profit_pct: v } as any).eq("id", settings.id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.put("/admin/site-settings/employee-profit-pct", { id: settings.id, employee_profit_pct: v });
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     toast.success("Guardado");
     setEmployeePct(null);
     qc.invalidateQueries({ queryKey: ["site_settings_admin"] });

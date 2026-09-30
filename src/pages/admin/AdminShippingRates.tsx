@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useShippingMethods } from "@/hooks/useSales";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,14 +40,7 @@ const AdminShippingRates = () => {
 
   const { data: rates = [] } = useQuery({
     queryKey: ["shipping_rates"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("shipping_rates" as any)
-        .select("*, shipping_methods(name)")
-        .order("sort_order");
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () => api.get<any[]>("/admin/shipping-rates"),
   });
 
   const openNew = () => { setEditing(null); setForm(empty); setOpen(true); };
@@ -76,11 +69,12 @@ const AdminShippingRates = () => {
       postal_code_to: form.postal_code_to || null,
       free_from_amount: form.free_from_amount === "" ? null : Number(form.free_from_amount),
     };
-    const op = editing
-      ? supabase.from("shipping_rates" as any).update(payload).eq("id", editing.id)
-      : supabase.from("shipping_rates" as any).insert(payload);
-    const { error } = await op;
-    if (error) return toast.error(error.message);
+    try {
+      if (editing) await api.put(`/admin/shipping-rates/${editing.id}`, payload);
+      else await api.post("/admin/shipping-rates", payload);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: ["shipping_rates"] });
     toast.success("Guardado");
     setOpen(false);
@@ -88,8 +82,11 @@ const AdminShippingRates = () => {
 
   const del = async (id: string) => {
     if (!confirm("¿Eliminar tarifa?")) return;
-    const { error } = await supabase.from("shipping_rates" as any).delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.delete(`/admin/shipping-rates/${id}`);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: ["shipping_rates"] });
   };
 

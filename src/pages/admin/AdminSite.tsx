@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSiteSettingsAdmin } from "@/hooks/useShopData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,27 +31,31 @@ const AdminSite = () => {
   const removeFaq = (index: number) => set("info_faqs", faqs.filter((_, i) => i !== index));
 
   const save = async () => {
-    const { error } = await supabase.from("site_settings").update({
-      site_name: form.site_name,
-      logo_url: form.logo_url,
-      phone: form.phone,
-      email: form.email,
-      whatsapp: form.whatsapp,
-      instagram_url: form.instagram_url,
-      facebook_url: form.facebook_url,
-      address: form.address,
-      shipping_origin_postal_code: form.shipping_origin_postal_code,
-      about_content: form.about_content,
-      info_content: form.info_content,
-      info_faqs: form.info_faqs,
-      admin_notify_email: form.admin_notify_email,
-      transfer_alias: form.transfer_alias,
-      transfer_holder: form.transfer_holder,
-      transfer_cbu: form.transfer_cbu,
-      transfer_bank: form.transfer_bank,
-      transfer_notes: form.transfer_notes,
-    } as any).eq("id", form.id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.put("/admin/site-settings", {
+        id: form.id,
+        site_name: form.site_name,
+        logo_url: form.logo_url,
+        phone: form.phone,
+        email: form.email,
+        whatsapp: form.whatsapp,
+        instagram_url: form.instagram_url,
+        facebook_url: form.facebook_url,
+        address: form.address,
+        shipping_origin_postal_code: form.shipping_origin_postal_code,
+        about_content: form.about_content,
+        info_content: form.info_content,
+        info_faqs: form.info_faqs,
+        admin_notify_email: form.admin_notify_email,
+        transfer_alias: form.transfer_alias,
+        transfer_holder: form.transfer_holder,
+        transfer_cbu: form.transfer_cbu,
+        transfer_bank: form.transfer_bank,
+        transfer_notes: form.transfer_notes,
+      });
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     toast.success("Guardado");
     qc.invalidateQueries({ queryKey: ["site_settings"] });
     qc.invalidateQueries({ queryKey: ["site_settings_admin"] });

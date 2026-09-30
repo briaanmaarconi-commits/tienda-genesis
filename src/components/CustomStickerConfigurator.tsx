@@ -6,7 +6,7 @@ import { formatPrice } from "@/lib/helpers";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Loader2, ShoppingCart, Upload, X, Check } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { uploadPublicFile } from "@/lib/helpers";
 import {
   useStickerMaterials,
   useStickerFinishes,
@@ -110,14 +110,10 @@ export default function CustomStickerConfigurator({ product }: Props) {
       let fileName: string | null = null;
       let imageUrl: string | null = null;
       if (file) {
-        const ext = file.name.split(".").pop() ?? "bin";
-        const path = `${product.slug}/${crypto.randomUUID()}.${ext}`;
-        const { error } = await supabase.storage
-          .from("custom-sticker-uploads")
-          .upload(path, file, { contentType: file.type || undefined });
-        if (error) throw error;
+        const res = await uploadPublicFile("custom-sticker-uploads", file);
+        if (!res.path) throw new Error("Error al subir el archivo");
         // Private bucket: keep the object path, admins get signed URLs.
-        fileUrl = path;
+        fileUrl = res.path;
         fileName = file.name;
       }
       const finishForConfig = finish ?? { id: "none", name: "Estándar", surcharge: 0 };

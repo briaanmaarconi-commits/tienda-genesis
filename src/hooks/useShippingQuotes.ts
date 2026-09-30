@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useSiteSettings } from "@/hooks/useShopData";
 
 export type ShippingQuote = {
@@ -23,12 +23,7 @@ const computeWeight = (items: CartItem[]) =>
   Math.max(0.1, items.reduce((acc, it) => acc + (Number(it.product.weight_kg) || 0.5) * it.qty, 0));
 
 async function lookupManualRate(methodId: string, postalCode: string, province: string) {
-  const { data: rates } = await supabase
-    .from("shipping_rates" as any)
-    .select("*")
-    .eq("shipping_method_id", methodId)
-    .eq("active", true)
-    .order("sort_order");
+  const rates = await api.get<any[]>("/shipping-rates", { method_id: methodId }).catch(() => []);
   const cpNum = parseInt(postalCode, 10);
   return (rates ?? []).find((r: any) => {
     if (r.province && province && r.province.toLowerCase() === province.toLowerCase()) return true;
@@ -43,20 +38,12 @@ async function lookupManualRate(methodId: string, postalCode: string, province: 
 }
 
 async function lookupLocalZone(methodId: string, postalCode: string) {
-  const { data: zones } = await supabase
-    .from("local_delivery_zones" as any)
-    .select("*")
-    .eq("shipping_method_id", methodId)
-    .eq("active", true)
-    .order("sort_order");
+  const zones = await api.get<any[]>("/local-delivery-zones", { method_id: methodId }).catch(() => []);
   return (zones ?? []).find((z: any) => (z.postal_codes ?? []).includes(postalCode)) as any;
 }
 
 async function checkFreeShipping(methodId: string, province: string, postalCode: string, cartTotal: number) {
-  const { data: rules } = await supabase
-    .from("free_shipping_rules" as any)
-    .select("*")
-    .eq("active", true);
+  const rules = await api.get<any[]>("/free-shipping-rules").catch(() => []);
   const cpNum = parseInt(postalCode, 10);
   return (rules ?? []).some((r: any) => {
     if (r.shipping_method_id && r.shipping_method_id !== methodId) return false;
@@ -134,17 +121,17 @@ export function useShippingQuotes(opts: {
 
             // Andreani
             if (m.provider === "andreani") {
-              const { data, error } = await supabase.functions.invoke("andreani-quote", {
-                body: {
+              const data = await api
+                .post<{ cost?: number; estimated_days?: number }>("/shipping/andreani/quote", {
                   postal_code_origin: origin,
                   postal_code_destination: postalCode,
                   weight_kg: totalWeight,
                   length_cm: 20, width_cm: 20, height_cm: 20,
                   declared_value: Math.max(1000, cartTotal),
                   delivery_type: m.delivery_type === "sucursal" ? "sucursal" : "domicilio",
-                },
-              });
-              if (!error && typeof data?.cost === "number" && data.cost > 0) {
+                })
+                .catch(() => null);
+              if (data && typeof data.cost === "number" && data.cost > 0) {
                 return {
                   ...base,
                   cost: data.cost,
@@ -156,16 +143,16 @@ export function useShippingQuotes(opts: {
 
             // OCA
             if (m.provider === "oca") {
-              const { data, error } = await supabase.functions.invoke("oca-quote", {
-                body: {
+              const data = await api
+                .post<{ cost?: number; estimated_days?: number }>("/shipping/oca/quote", {
                   postal_code_origin: origin,
                   postal_code_destination: postalCode,
                   weight_kg: totalWeight,
                   declared_value: Math.max(1000, cartTotal),
                   delivery_type: m.delivery_type === "sucursal" ? "sucursal" : "domicilio",
-                },
-              });
-              if (!error && typeof data?.cost === "number" && data.cost > 0) {
+                })
+                .catch(() => null);
+              if (data && typeof data.cost === "number" && data.cost > 0) {
                 return {
                   ...base,
                   cost: data.cost,
@@ -177,16 +164,16 @@ export function useShippingQuotes(opts: {
 
             // Correo Argentino
             if (m.provider === "correo") {
-              const { data, error } = await supabase.functions.invoke("correo-quote", {
-                body: {
+              const data = await api
+                .post<{ cost?: number; estimated_days?: number }>("/shipping/correo/quote", {
                   postal_code_origin: origin,
                   postal_code_destination: postalCode,
                   weight_kg: totalWeight,
                   declared_value: Math.max(1000, cartTotal),
                   delivery_type: m.delivery_type === "sucursal" ? "sucursal" : "domicilio",
-                },
-              });
-              if (!error && typeof data?.cost === "number" && data.cost > 0) {
+                })
+                .catch(() => null);
+              if (data && typeof data.cost === "number" && data.cost > 0) {
                 return {
                   ...base,
                   cost: data.cost,

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useSale } from "@/hooks/useSales";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/helpers";
@@ -59,17 +59,22 @@ const SaleDetailDialog = ({ id, onOpenChange }: { id: string | null; onOpenChang
     if (!id) return;
     const wasEnviada = sale?.status === "enviada";
     const becomesEnviada = status === "enviada" && !wasEnviada;
-    const { error } = await supabase.from("sales").update({
-      status: status as any,
-      notes,
-      tracking_code: trackingCode || null,
-      tracking_carrier: trackingCarrier || null,
-    } as any).eq("id", id);
-    if (error) return toast.error(error.message);
 
-    if (becomesEnviada && trackingCode.trim() && (sale as any)?.customer?.email) {
-      const { error: mailErr } = await supabase.functions.invoke("send-shipping-email", { body: { sale_id: id } });
-      if (mailErr) toast.error("Venta guardada pero falló el email: " + mailErr.message);
+    let emailResult: { ok: boolean; error?: string } | null;
+    try {
+      const res = await api.put<{ email_result: { ok: boolean; error?: string } | null }>(`/admin/sales/${id}`, {
+        status,
+        notes,
+        tracking_code: trackingCode || null,
+        tracking_carrier: trackingCarrier || null,
+      });
+      emailResult = res.email_result;
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
+
+    if (becomesEnviada && trackingCode.trim() && emailResult) {
+      if (!emailResult.ok) toast.error("Venta guardada pero falló el email: " + emailResult.error);
       else toast.success("Venta actualizada y email enviado al cliente");
     } else if (becomesEnviada && !trackingCode.trim()) {
       toast.success("Venta marcada como enviada (sin código de seguimiento, no se envió email)");
@@ -84,16 +89,23 @@ const SaleDetailDialog = ({ id, onOpenChange }: { id: string | null; onOpenChang
     if (!id) return;
     if (!trackingCode.trim()) return toast.error("Falta código de seguimiento");
     setSending(true);
-    await supabase.from("sales").update({ tracking_code: trackingCode, tracking_carrier: trackingCarrier } as any).eq("id", id);
-    const { error } = await supabase.functions.invoke("send-shipping-email", { body: { sale_id: id } });
-    setSending(false);
-    if (error) toast.error(error.message); else toast.success("Email reenviado");
+    try {
+      await api.post(`/admin/sales/${id}/resend-shipping-email`, { tracking_code: trackingCode, tracking_carrier: trackingCarrier });
+      toast.success("Email reenviado");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSending(false);
+    }
   };
 
   const del = async () => {
     if (!id || !confirm("¿Eliminar esta venta?")) return;
-    const { error } = await supabase.from("sales").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.delete(`/admin/sales/${id}`);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     toast.success("Venta eliminada");
     qc.invalidateQueries({ queryKey: ["sales"] });
     onOpenChange(false);

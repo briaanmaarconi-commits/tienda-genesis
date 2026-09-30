@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useBanners } from "@/hooks/useShopData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,19 +26,20 @@ const AdminBanners = () => {
   });
 
   const save = async () => {
-    const payload = { ...editing };
-    delete payload.created_at; delete payload.updated_at;
-    const { error } = editing.id
-      ? await supabase.from("banners").update(payload).eq("id", editing.id)
-      : await supabase.from("banners").insert(payload);
-    if (error) return toast.error(error.message);
+    const { id, created_at, updated_at, ...payload } = editing;
+    try {
+      if (id) await api.put(`/admin/banners/${id}`, payload);
+      else await api.post("/admin/banners", payload);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     toast.success("Guardado");
     setEditing(null); refresh();
   };
 
   const remove = async (id: string) => {
     if (!confirm("¿Borrar banner?")) return;
-    await supabase.from("banners").delete().eq("id", id);
+    await api.delete(`/admin/banners/${id}`);
     refresh();
   };
 
@@ -47,8 +48,7 @@ const AdminBanners = () => {
     const i = list.findIndex((b: any) => b.id === id);
     const j = i + dir;
     if (j < 0 || j >= list.length) return;
-    await supabase.from("banners").update({ sort_order: list[j].sort_order }).eq("id", list[i].id);
-    await supabase.from("banners").update({ sort_order: list[i].sort_order }).eq("id", list[j].id);
+    await api.post(`/admin/banners/${list[i].id}/swap-with/${list[j].id}`);
     refresh();
   };
 

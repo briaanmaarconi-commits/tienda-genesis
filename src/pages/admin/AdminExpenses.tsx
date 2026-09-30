@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useExpenses } from "@/hooks/useSales";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,10 +37,12 @@ const AdminExpenses = () => {
       expense_date: editing.expense_date || todayInput(),
     };
 
-    const { error } = editing.id
-      ? await supabase.from("expenses").update(payload).eq("id", editing.id)
-      : await supabase.from("expenses").insert(payload);
-    if (error) return toast.error(error.message);
+    try {
+      if (editing.id) await api.put(`/admin/expenses/${editing.id}`, payload);
+      else await api.post("/admin/expenses", payload);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
 
     toast.success("Guardado");
     setEditing(null);
@@ -49,7 +51,7 @@ const AdminExpenses = () => {
 
   const remove = async (id: string) => {
     if (!confirm("¿Borrar gasto?")) return;
-    await supabase.from("expenses").delete().eq("id", id);
+    await api.delete(`/admin/expenses/${id}`);
     refresh();
   };
 

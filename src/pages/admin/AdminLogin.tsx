@@ -1,8 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { API_BASE } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
-import { toast } from "sonner";
 
 const AdminLogin = () => {
   const { session, isAdmin, loading } = useAuth();
@@ -10,12 +9,8 @@ const AdminLogin = () => {
   if (loading) return <div className="container py-20 text-center">Cargando...</div>;
   if (session && isAdmin) return <Navigate to="/admin" replace />;
 
-  const onGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + "/admin" },
-    });
-    if (error) toast.error("No se pudo iniciar sesión");
+  const onGoogle = () => {
+    window.location.href = `${API_BASE}/auth/google/login`;
   };
 
   return (

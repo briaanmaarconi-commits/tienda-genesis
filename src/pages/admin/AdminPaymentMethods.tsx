@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -27,16 +27,22 @@ const AdminPaymentMethods = () => {
 
   const save = async () => {
     if (!form.name.trim()) return toast.error("Nombre requerido");
-    const op = editing ? supabase.from("payment_methods").update(form).eq("id", editing.id) : supabase.from("payment_methods").insert(form);
-    const { error } = await op;
-    if (error) return toast.error(error.message);
+    try {
+      if (editing) await api.put(`/admin/payment-methods/${editing.id}`, form);
+      else await api.post("/admin/payment-methods", form);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: ["payment_methods"] });
     setOpen(false);
   };
   const del = async (id: string) => {
     if (!confirm("¿Eliminar?")) return;
-    const { error } = await supabase.from("payment_methods").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.delete(`/admin/payment-methods/${id}`);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: ["payment_methods"] });
   };
 

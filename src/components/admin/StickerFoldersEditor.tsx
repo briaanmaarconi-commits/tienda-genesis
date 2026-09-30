@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api, API_BASE } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,27 +27,8 @@ export default function StickerFoldersEditor({ productId, onClose }: { productId
 
   const load = async () => {
     setLoading(true);
-    const { data: fd } = await supabase
-      .from("product_sticker_folders")
-      .select("*")
-      .eq("product_id", productId)
-      .order("sort_order");
-    const ids = (fd ?? []).map((f) => f.id);
-    let stickers: any[] = [];
-    if (ids.length) {
-      const { data: sd } = await supabase
-        .from("product_stickers")
-        .select("*")
-        .in("folder_id", ids)
-        .order("sort_order");
-      stickers = sd ?? [];
-    }
-    setFolders(
-      (fd ?? []).map((f: any) => ({
-        ...f,
-        stickers: stickers.filter((s) => s.folder_id === f.id),
-      })),
-    );
+    const data = await api.get<Folder[]>("/admin/sticker-folders", { product_id: productId }).catch(() => []);
+    setFolders(data);
     setLoading(false);
   };
 
@@ -67,7 +48,7 @@ export default function StickerFoldersEditor({ productId, onClose }: { productId
   const removeFolder = async (i: number) => {
     if (!confirm("¿Borrar carpeta y todos sus stickers?")) return;
     const f = folders[i];
-    if (f.id) await supabase.from("product_sticker_folders").delete().eq("id", f.id);
+    if (f.id) await api.delete(`/admin/sticker-folders/${f.id}`);
     setFolders((p) => p.filter((_, j) => j !== i));
   };
 
@@ -97,7 +78,7 @@ export default function StickerFoldersEditor({ productId, onClose }: { productId
 
   const removeSticker = async (fi: number, si: number) => {
     const s = folders[fi].stickers[si];
-    if (s.id) await supabase.from("product_stickers").delete().eq("id", s.id);
+    if (s.id) await api.delete(`/admin/stickers/${s.id}`);
     setFolders((p) =>
       p.map((f, j) => (j === fi ? { ...f, stickers: f.stickers.filter((_, k) => k !== si) } : f)),
     );
@@ -122,55 +103,23 @@ export default function StickerFoldersEditor({ productId, onClose }: { productId
       toast.error("Guardá la carpeta antes de subir imágenes masivamente");
       return;
     }
-    const arr = Array.from(files).sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }),
-    );
     setUploading(`bulk-${fi}`);
-    let ok = 0;
-    let baseSort = f.stickers.length;
     try {
-      for (const file of arr) {
-        try {
-          const url = await uploadImage("products", file);
-          const name = file.name.replace(/\.[^.]+$/, "").trim() || `Sticker ${baseSort + 1}`;
-          const { data, error } = await supabase
-            .from("product_stickers")
-            .insert({
-              folder_id: f.id,
-              name,
-              image_url: url,
-              sort_order: baseSort,
-              active: true,
-            })
-            .select()
-            .single();
-          if (error) throw error;
-          baseSort++;
-          ok++;
-          setFolders((p) =>
-            p.map((ff, j) =>
-              j === fi
-                ? {
-                    ...ff,
-                    stickers: [
-                      ...ff.stickers,
-                      {
-                        id: data.id,
-                        name: data.name,
-                        image_url: data.image_url,
-                        sort_order: data.sort_order,
-                        active: data.active,
-                      },
-                    ],
-                  }
-                : ff,
-            ),
-          );
-        } catch (e: any) {
-          toast.error(`${file.name}: ${e.message}`);
-        }
+      const form = new FormData();
+      form.append("folder_id", f.id);
+      for (const file of Array.from(files)) form.append("files", file);
+      const res = await fetch(`${API_BASE}/admin/stickers/bulk-upload`, { method: "POST", body: form, credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "Error al subir");
+      const created: Sticker[] = data.created ?? [];
+      const errors: { filename: string; error: string }[] = data.errors ?? [];
+      if (created.length) {
+        setFolders((p) => p.map((ff, j) => (j === fi ? { ...ff, stickers: [...ff.stickers, ...created] } : ff)));
+        toast.success(`${created.length} sticker${created.length === 1 ? "" : "s"} subido${created.length === 1 ? "" : "s"}`);
       }
-      if (ok > 0) toast.success(`${ok} sticker${ok === 1 ? "" : "s"} subido${ok === 1 ? "" : "s"}`);
+      for (const err of errors) toast.error(`${err.filename}: ${err.error}`);
+    } catch (e: any) {
+      toast.error(e.message);
     } finally {
       setUploading(null);
     }
@@ -179,46 +128,7 @@ export default function StickerFoldersEditor({ productId, onClose }: { productId
   const saveAll = async () => {
     setSaving(true);
     try {
-      for (let fi = 0; fi < folders.length; fi++) {
-        const f = folders[fi];
-        if (!f.name.trim()) continue;
-        const folderPayload = {
-          product_id: productId,
-          name: f.name.trim(),
-          slug: f.slug || slugify(f.name),
-          sort_order: fi,
-          active: f.active,
-        };
-        let folderId = f.id;
-        if (folderId) {
-          await supabase.from("product_sticker_folders").update(folderPayload).eq("id", folderId);
-        } else {
-          const { data, error } = await supabase
-            .from("product_sticker_folders")
-            .insert(folderPayload)
-            .select()
-            .single();
-          if (error) throw error;
-          folderId = data.id;
-        }
-
-        for (let si = 0; si < f.stickers.length; si++) {
-          const s = f.stickers[si];
-          if (!s.name.trim()) continue;
-          const stickerPayload = {
-            folder_id: folderId,
-            name: s.name.trim(),
-            image_url: s.image_url,
-            sort_order: si,
-            active: s.active,
-          };
-          if (s.id) {
-            await supabase.from("product_stickers").update(stickerPayload).eq("id", s.id);
-          } else {
-            await supabase.from("product_stickers").insert(stickerPayload);
-          }
-        }
-      }
+      await api.put("/admin/sticker-folders", { product_id: productId, folders });
       toast.success("Carpetas y stickers guardados");
       await load();
     } catch (e: any) {

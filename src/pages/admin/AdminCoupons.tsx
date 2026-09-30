@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -47,9 +47,12 @@ const AdminCoupons = () => {
       usage_limit: form.usage_limit === "" ? null : Number(form.usage_limit),
       active: form.active,
     };
-    const op = editing ? supabase.from("coupons").update(payload).eq("id", editing.id) : supabase.from("coupons").insert(payload);
-    const { error } = await op;
-    if (error) return toast.error(error.message);
+    try {
+      if (editing) await api.put(`/admin/coupons/${editing.id}`, payload);
+      else await api.post("/admin/coupons", payload);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     toast.success(editing ? "Cupón actualizado" : "Cupón creado");
     qc.invalidateQueries({ queryKey: ["coupons"] });
     setOpen(false);
@@ -57,8 +60,11 @@ const AdminCoupons = () => {
 
   const del = async (id: string) => {
     if (!confirm("¿Eliminar cupón?")) return;
-    const { error } = await supabase.from("coupons").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.delete(`/admin/coupons/${id}`);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: ["coupons"] });
   };
 

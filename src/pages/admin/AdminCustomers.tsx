@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -25,9 +25,12 @@ const AdminCustomers = () => {
 
   const save = async () => {
     if (!form.name.trim()) return toast.error("Nombre requerido");
-    const op = editing ? supabase.from("customers").update(form).eq("id", editing.id) : supabase.from("customers").insert(form);
-    const { error } = await op;
-    if (error) return toast.error(error.message);
+    try {
+      if (editing) await api.put(`/admin/customers/${editing.id}`, form);
+      else await api.post("/admin/customers", form);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     toast.success(editing ? "Cliente actualizado" : "Cliente creado");
     qc.invalidateQueries({ queryKey: ["customers"] });
     setOpen(false);
@@ -35,8 +38,11 @@ const AdminCustomers = () => {
 
   const del = async (id: string) => {
     if (!confirm("¿Eliminar cliente?")) return;
-    const { error } = await supabase.from("customers").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.delete(`/admin/customers/${id}`);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     toast.success("Eliminado");
     qc.invalidateQueries({ queryKey: ["customers"] });
   };

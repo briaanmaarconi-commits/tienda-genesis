@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/helpers";
 import { AR_PROVINCES, inferProvinceFromCP } from "@/lib/argPostalCodes";
 import { useShippingQuotes, type ShippingQuote } from "@/hooks/useShippingQuotes";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { Truck, MapPin, Store, Bike, Loader2 } from "lucide-react";
 import { useSiteSettings } from "@/hooks/useShopData";
 
@@ -62,15 +62,16 @@ const ShippingSelector = ({
     setBranches([]);
     const provider = selectedQuote.provider ?? "";
     const methodName = selectedQuote.method_name?.toLowerCase() ?? "";
-    const fnName =
-      provider === "oca" || methodName.includes("oca") ? "oca-branches" :
-      provider === "correo" || methodName.includes("correo") ? "correo-branches" :
-      "andreani-branches";
-    supabase.functions.invoke(fnName, { body: { postal_code: postalCode, province } })
-      .then(({ data, error }) => {
+    const path =
+      provider === "oca" || methodName.includes("oca") ? "/shipping/oca/branches" :
+      provider === "correo" || methodName.includes("correo") ? "/shipping/correo/branches" :
+      "/shipping/andreani/branches";
+    api.post<{ branches?: any[] }>(path, { postal_code: postalCode, province })
+      .then((data) => {
         if (cancelled) return;
-        setBranches(!error && Array.isArray(data?.branches) ? data.branches : []);
+        setBranches(Array.isArray(data?.branches) ? data.branches : []);
       })
+      .catch(() => !cancelled && setBranches([]))
       .finally(() => !cancelled && setBranchLoading(false));
     return () => { cancelled = true; };
   }, [needsBranches, selectedQuote?.provider, selectedQuote?.method_name, postalCode, province]);

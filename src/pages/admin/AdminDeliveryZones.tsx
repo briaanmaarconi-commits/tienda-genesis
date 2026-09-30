@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { useShippingMethods } from "@/hooks/useSales";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,11 +30,7 @@ const AdminDeliveryZones = () => {
 
   const { data: zones = [] } = useQuery({
     queryKey: ["local_delivery_zones"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("local_delivery_zones" as any).select("*, shipping_method:shipping_methods(name)").order("sort_order");
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () => api.get<any[]>("/admin/delivery-zones"),
   });
 
   const [open, setOpen] = useState(false);
@@ -72,19 +68,23 @@ const AdminDeliveryZones = () => {
       active: form.active,
       sort_order: Number(form.sort_order),
     };
-    const op = editing
-      ? supabase.from("local_delivery_zones" as any).update(payload).eq("id", editing.id)
-      : supabase.from("local_delivery_zones" as any).insert(payload);
-    const { error } = await op;
-    if (error) return toast.error(error.message);
+    try {
+      if (editing) await api.put(`/admin/delivery-zones/${editing.id}`, payload);
+      else await api.post("/admin/delivery-zones", payload);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: ["local_delivery_zones"] });
     setOpen(false);
   };
 
   const del = async (id: string) => {
     if (!confirm("¿Eliminar zona?")) return;
-    const { error } = await supabase.from("local_delivery_zones" as any).delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    try {
+      await api.delete(`/admin/delivery-zones/${id}`);
+    } catch (e: any) {
+      return toast.error(e.message);
+    }
     qc.invalidateQueries({ queryKey: ["local_delivery_zones"] });
   };
 

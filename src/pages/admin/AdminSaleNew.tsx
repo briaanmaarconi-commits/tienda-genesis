@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/helpers";
 import { useQueryClient } from "@tanstack/react-query";
@@ -51,27 +51,20 @@ const AdminSaleNew = () => {
 
   const submit = async () => {
     if (items.length === 0) return toast.error("Agregá al menos un item");
+    if (customerId === "__new__" && !newCustomer.name.trim()) return toast.error("Nombre del cliente requerido");
     setSaving(true);
     try {
-      let custId = customerId === "__new__" ? null : customerId;
-      if (customerId === "__new__") {
-        if (!newCustomer.name.trim()) { setSaving(false); return toast.error("Nombre del cliente requerido"); }
-        const { data: c, error } = await supabase.from("customers").insert(newCustomer).select().single();
-        if (error) throw error;
-        custId = c.id;
-      }
-      const { data: sale, error: e1 } = await supabase.from("sales").insert({
-        customer_id: custId,
+      await api.post("/admin/sales", {
+        customer_id: customerId,
+        new_customer: customerId === "__new__" ? newCustomer : undefined,
         payment_method_id: paymentId || null,
         shipping_method_id: shippingId || null,
-        subtotal, shipping_cost: shippingCost, surcharge, total,
-        status: status as any, source: "admin", notes,
-      }).select().single();
-      if (e1) throw e1;
-      const { error: e2 } = await supabase.from("sale_items").insert(
-        items.map((it) => ({ sale_id: sale.id, product_id: it.product_id, product_name: it.product_name, unit_price: it.unit_price, unit_cost: it.unit_cost, quantity: it.quantity, subtotal: it.unit_price * it.quantity }))
-      );
-      if (e2) throw e2;
+        shipping_cost: shippingCost,
+        surcharge_pct: pay ? Number(pay.surcharge_pct) : 0,
+        status,
+        notes,
+        items,
+      });
       toast.success("Venta creada");
       qc.invalidateQueries({ queryKey: ["sales"] });
       nav("/admin/ventas");
