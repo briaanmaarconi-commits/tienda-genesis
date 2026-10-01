@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
-# One-off: copies the 26 shared business tables from live Supabase into
+# Superseded by migrate-data-rest.ts: resetting/handling the Supabase DB
+# password directly (needed for pg_dump) is blocked in this environment, so
+# the actual Fase 5 migration goes through the PostgREST API instead. Kept
+# here for reference / for running by hand with your own credentials.
+#
+# One-off: copies the 25 shared business tables from live Supabase into
 # genesis-db. Run this from anywhere with network access to both databases
 # (the Supabase side is public; genesis-db is reached via SSH + docker exec
 # on the VPS, same pattern used throughout this migration — never exposed
 # publicly).
 #
-# Deliberately excludes `users` and `admin_sessions` — those are new tables
-# that get populated fresh by the first real Google login post-cutover (see
-# memory: same self-healing "first user becomes admin" pattern already
-# proven in the Lovable->Supabase cutover).
+# Deliberately excludes `users` and `user_roles` — those reference Supabase's
+# auth.users ids, which have no counterpart in genesis-db's new `users` table
+# (populated fresh by the first real Google login post-cutover).
 #
 # Usage: SUPABASE_DB_URL='postgres://postgres:...@db.xxx.supabase.co:5432/postgres' ./migrate-data.sh
 
@@ -30,7 +34,6 @@ TABLES=(
   product_sticker_folders product_stickers products sale_items sales
   shipping_methods shipping_rates site_settings sticker_finishes
   sticker_materials sticker_quantities sticker_shapes sticker_sizes
-  user_roles
 )
 # Note: site_settings_public is a VIEW (updates itself), not a table — excluded.
 
