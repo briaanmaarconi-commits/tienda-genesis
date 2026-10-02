@@ -16,20 +16,15 @@ import {
   computeStickerPrice,
   type CustomStickerConfig,
 } from "@/hooks/useCustomSticker";
-import shapeCircular from "@/assets/shapes/circular.png.asset.json";
-import shapeCuadrado from "@/assets/shapes/cuadrado.png.asset.json";
-import shapeRectangular from "@/assets/shapes/rectangular.png.asset.json";
-import shapeSilueta from "@/assets/shapes/silueta.png.asset.json";
-
 const shapeIconFor = (name: string): string | null => {
   const n = name
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
-  if (n.includes("circ") || n.includes("redond")) return shapeCircular.url;
-  if (n.includes("cuadr")) return shapeCuadrado.url;
-  if (n.includes("rect")) return shapeRectangular.url;
-  if (n.includes("silu") || n.includes("contorn") || n.includes("troquel")) return shapeSilueta.url;
+  if (n.includes("circ") || n.includes("redond")) return "/shapes/circular.png";
+  if (n.includes("cuadr")) return "/shapes/cuadrado.png";
+  if (n.includes("rect")) return "/shapes/rectangular.png";
+  if (n.includes("silu") || n.includes("contorn") || n.includes("troquel")) return "/shapes/silueta.png";
   return null;
 };
 
