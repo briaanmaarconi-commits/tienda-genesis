@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useProducts } from "@/hooks/useShopData";
-import { computeLineTotal, type CartItem, type CartProduct } from "@/contexts/CartContext";
+import { computeLineTotal, type CartAddon, type CartItem, type CartProduct } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,11 +12,39 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/helpers";
 
-type Row = { rowId: string; productId: string; packId: string; qty: number };
+type Row = { rowId: string; productId: string; packId: string; qty: number; addons: Record<string, string> };
+
+// Same semantics as ProductPage.tsx's chosenAddons: one option per group
+// (radio-style), required groups default to their first option.
+function buildAddons(detail: any, selections: Record<string, string>): CartAddon[] {
+  const groups = ((detail?.addon_groups ?? []) as any[])
+    .filter((g) => g.active)
+    .map((g) => ({ ...g, options: ((g.options ?? []) as any[]).filter((o: any) => o.active) }))
+    .filter((g) => g.options.length > 0);
+
+  const out: CartAddon[] = [];
+  for (const g of groups) {
+    const optId = selections[g.id] ?? (g.required ? g.options[0]?.id : undefined);
+    if (!optId) continue;
+    const opt = g.options.find((o: any) => o.id === optId);
+    if (!opt) continue;
+    out.push({
+      group_id: g.id,
+      group_name: g.name,
+      option_id: opt.id,
+      option_name: opt.name,
+      extra_price: g.is_multiplier ? 0 : Number(opt.extra_price),
+      per_unit: !g.is_multiplier && !!g.per_unit,
+      multiplier: g.is_multiplier ? Number(opt.price_multiplier) || 1 : undefined,
+    });
+  }
+  return out;
+}
 
 const AdminSharedCartNew = () => {
   const nav = useNavigate();
   const { data: products = [] } = useProducts({ activeOnly: false });
+  const [productDetails, setProductDetails] = useState<Record<string, any>>({});
 
   const [rows, setRows] = useState<Row[]>([]);
   const [customerName, setCustomerName] = useState("");
@@ -25,16 +53,49 @@ const AdminSharedCartNew = () => {
   const [saving, setSaving] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
 
-  const addRow = () => setRows([...rows, { rowId: crypto.randomUUID(), productId: "", packId: "", qty: 1 }]);
+  // Addon groups/options only come back on the per-product detail endpoint,
+  // not the list one — fetch and cache details for whatever products are
+  // currently selected across rows.
+  useEffect(() => {
+    const slugs = new Set<string>();
+    for (const row of rows) {
+      const product: any = products.find((p: any) => p.id === row.productId);
+      if (product?.slug && !productDetails[product.slug]) slugs.add(product.slug);
+    }
+    slugs.forEach((slug) => {
+      api.get<any>(`/products/${slug}`).then((detail) => {
+        setProductDetails((prev) => ({ ...prev, [slug]: detail }));
+      }).catch(() => {});
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, products]);
+
+  const addRow = () => setRows([...rows, { rowId: crypto.randomUUID(), productId: "", packId: "", qty: 1, addons: {} }]);
   const updateRow = (rowId: string, patch: Partial<Row>) =>
     setRows(rows.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)));
   const removeRow = (rowId: string) => setRows(rows.filter((r) => r.rowId !== rowId));
+
+  const addonGroupsFor = (row: Row) => {
+    const product: any = products.find((p: any) => p.id === row.productId);
+    const detail = product ? productDetails[product.slug] : null;
+    return ((detail?.addon_groups ?? []) as any[])
+      .filter((g) => g.active)
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((g) => ({
+        ...g,
+        options: ((g.options ?? []) as any[]).filter((o: any) => o.active).slice().sort((a: any, b: any) => a.sort_order - b.sort_order),
+      }))
+      .filter((g) => g.options.length > 0);
+  };
 
   const toCartProduct = (row: Row): CartProduct | null => {
     const product: any = products.find((p: any) => p.id === row.productId);
     if (!product) return null;
     const pack = product.packs?.find((pk: any) => pk.id === row.packId);
     const image = product.images?.[0];
+    const detail = productDetails[product.slug];
+    const addons = detail ? buildAddons(detail, row.addons) : [];
     return {
       slug: product.slug,
       name: product.name,
@@ -47,6 +108,7 @@ const AdminSharedCartNew = () => {
       image_focal_y: image?.focal_y != null ? Number(image.focal_y) : null,
       image_zoom: image?.zoom != null ? Number(image.zoom) : null,
       image_fit: image?.fit ?? null,
+      addons: addons.length ? addons : undefined,
     };
   };
 
@@ -108,8 +170,8 @@ const AdminSharedCartNew = () => {
     <div>
       <h1 className="text-3xl font-bold">Armar carrito para un cliente</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Elegí los productos y cantidades. El cliente completa sus datos, elige el envío y paga desde el link que le
-        compartas.
+        Elegí los productos, cantidades y adicionales. El cliente completa sus datos, elige el envío y paga desde el
+        link que le compartas.
       </p>
 
       <div className="mt-6 space-y-6">
@@ -122,47 +184,81 @@ const AdminSharedCartNew = () => {
             {rows.map((row) => {
               const product: any = products.find((p: any) => p.id === row.productId);
               const cartProduct = toCartProduct(row);
+              const addonGroups = addonGroupsFor(row);
               return (
-                <div key={row.rowId} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[2fr_1.5fr_80px_120px_auto] sm:items-end">
-                  <div>
-                    <Label className="text-xs">Producto</Label>
-                    <Select value={row.productId} onValueChange={(v) => updateRow(row.rowId, { productId: v, packId: "" })}>
-                      <SelectTrigger><SelectValue placeholder="Elegir..." /></SelectTrigger>
-                      <SelectContent>
-                        {products.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                <div key={row.rowId} className="rounded-lg border p-3">
+                  <div className="grid gap-2 sm:grid-cols-[2fr_1.5fr_80px_120px_auto] sm:items-end">
+                    <div>
+                      <Label className="text-xs">Producto</Label>
+                      <Select value={row.productId} onValueChange={(v) => updateRow(row.rowId, { productId: v, packId: "", addons: {} })}>
+                        <SelectTrigger><SelectValue placeholder="Elegir..." /></SelectTrigger>
+                        <SelectContent>
+                          {products.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Variante</Label>
+                      <Select
+                        value={row.packId}
+                        onValueChange={(v) => updateRow(row.rowId, { packId: v })}
+                        disabled={!product?.packs?.length}
+                      >
+                        <SelectTrigger><SelectValue placeholder={product?.packs?.length ? "Elegir..." : "Base"} /></SelectTrigger>
+                        <SelectContent>
+                          {(product?.packs ?? []).map((pk: any) => (
+                            <SelectItem key={pk.id} value={pk.id}>
+                              {pk.label || (pk.units ? `Pack de ${pk.units}` : "Variante")} — {formatPrice(Number(pk.price))}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Cant.</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={row.qty}
+                        onChange={(e) => updateRow(row.rowId, { qty: Math.max(1, Number(e.target.value)) })}
+                      />
+                    </div>
+                    <div className="text-right font-bold">
+                      {cartProduct ? formatPrice(computeLineTotal(cartProduct, row.qty)) : "-"}
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => removeRow(row.rowId)}><Trash2 /></Button>
                   </div>
-                  <div>
-                    <Label className="text-xs">Variante</Label>
-                    <Select
-                      value={row.packId}
-                      onValueChange={(v) => updateRow(row.rowId, { packId: v })}
-                      disabled={!product?.packs?.length}
-                    >
-                      <SelectTrigger><SelectValue placeholder={product?.packs?.length ? "Elegir..." : "Base"} /></SelectTrigger>
-                      <SelectContent>
-                        {(product?.packs ?? []).map((pk: any) => (
-                          <SelectItem key={pk.id} value={pk.id}>
-                            {pk.label || (pk.units ? `Pack de ${pk.units}` : "Variante")} — {formatPrice(Number(pk.price))}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Cant.</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={row.qty}
-                      onChange={(e) => updateRow(row.rowId, { qty: Math.max(1, Number(e.target.value)) })}
-                    />
-                  </div>
-                  <div className="text-right font-bold">
-                    {cartProduct ? formatPrice(computeLineTotal(cartProduct, row.qty)) : "-"}
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={() => removeRow(row.rowId)}><Trash2 /></Button>
+
+                  {addonGroups.length > 0 && (
+                    <div className="mt-3 grid gap-2 border-t pt-3 sm:grid-cols-2">
+                      {addonGroups.map((g: any) => {
+                        const selected = row.addons[g.id] ?? (g.required ? g.options[0]?.id : "");
+                        return (
+                          <div key={g.id}>
+                            <Label className="text-xs">
+                              {g.name}{g.required ? " *" : " (opcional)"}
+                            </Label>
+                            <Select
+                              value={selected}
+                              onValueChange={(v) => updateRow(row.rowId, { addons: { ...row.addons, [g.id]: v } })}
+                            >
+                              <SelectTrigger><SelectValue placeholder="Elegir..." /></SelectTrigger>
+                              <SelectContent>
+                                {g.options.map((o: any) => (
+                                  <SelectItem key={o.id} value={o.id}>
+                                    {o.name}
+                                    {g.is_multiplier
+                                      ? Number(o.price_multiplier) !== 1 ? ` (× ${Number(o.price_multiplier)})` : ""
+                                      : Number(o.extra_price) > 0 ? ` (+${formatPrice(Number(o.extra_price))}${g.per_unit ? " c/u" : ""})` : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
