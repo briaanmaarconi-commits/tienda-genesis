@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { coupons, customers, sales, saleItems, products, paymentMethods, siteSettings } from "../db/schema.js";
+import { coupons, customers, sales, saleItems, products, paymentMethods, siteSettings, sharedCarts } from "../db/schema.js";
 import { sendAdminOrderNotification } from "../email/sendAdminOrderNotification.js";
 
 const ItemInput = z.object({
@@ -39,6 +39,7 @@ const CheckoutBody = z.object({
   }),
   items: z.array(ItemInput).min(1).max(200),
   coupon_code: z.string().max(64).nullable().optional(),
+  shared_cart_token: z.string().max(64).nullable().optional(),
 });
 
 export async function registerCheckoutRoutes(app: FastifyInstance) {
@@ -48,7 +49,7 @@ export async function registerCheckoutRoutes(app: FastifyInstance) {
       reply.code(400).send({ error: parsed.error.flatten() });
       return;
     }
-    const { customer, sale, items, coupon_code } = parsed.data;
+    const { customer, sale, items, coupon_code, shared_cart_token } = parsed.data;
 
     const subtotal = sale.subtotal || 0;
     let discountAmount = 0;
@@ -151,6 +152,13 @@ export async function registerCheckoutRoutes(app: FastifyInstance) {
               sql`(${coupons.usageLimit} is null or ${coupons.timesUsed} < ${coupons.usageLimit})`,
             ),
           );
+      }
+
+      if (shared_cart_token?.trim()) {
+        await tx
+          .update(sharedCarts)
+          .set({ status: "completado", saleId: saleRow.id, completedAt: new Date().toISOString() })
+          .where(and(eq(sharedCarts.token, shared_cart_token.trim()), eq(sharedCarts.status, "pendiente")));
       }
 
       return saleRow.id;

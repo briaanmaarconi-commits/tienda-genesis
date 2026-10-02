@@ -19,6 +19,12 @@ export const useCustomers = () =>
     queryFn: () => api.get<any[]>("/admin/customers"),
   });
 
+export const useSharedCarts = () =>
+  useQuery({
+    queryKey: ["shared_carts"],
+    queryFn: () => api.get<any[]>("/admin/shared-carts"),
+  });
+
 export const useSales = (filters?: { status?: string; from?: string; to?: string; search?: string }) =>
   useQuery({
     queryKey: ["sales", filters],

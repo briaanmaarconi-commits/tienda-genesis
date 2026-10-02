@@ -1,7 +1,7 @@
 import { Outlet, NavLink, Link, useLocation } from "react-router-dom";
 import { useState } from "react";
 import AdminGuard from "@/components/AdminGuard";
-import { Image, LayoutDashboard, Package, Settings, Home, DollarSign, ChevronDown, ListOrdered, PlusCircle, Users, BarChart3, CreditCard, Truck, Tag, Sparkles, Receipt } from "lucide-react";
+import { Image, LayoutDashboard, Package, Settings, Home, DollarSign, ChevronDown, ListOrdered, PlusCircle, Users, BarChart3, CreditCard, Truck, Tag, Sparkles, Receipt, Share2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 const topItems = [
@@ -15,7 +15,8 @@ const topItems = [
 
 const salesItems = [
   { to: "/admin/ventas", end: true, label: "Listado de ventas", Icon: ListOrdered },
-  { to: "/admin/ventas/nueva", label: "Agregar venta", Icon: PlusCircle, badge: "¡Nuevo!" },
+  { to: "/admin/ventas/nueva", label: "Agregar venta", Icon: PlusCircle },
+  { to: "/admin/carritos-compartidos", label: "Carritos compartidos", Icon: Share2, badge: "¡Nuevo!" },
   { to: "/admin/clientes", label: "Clientes", Icon: Users },
   { to: "/admin/cupones", label: "Cupones", Icon: Tag },
   { to: "/admin/metricas", label: "Métricas", Icon: BarChart3 },

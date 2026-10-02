@@ -521,6 +521,30 @@ export const sales = pgTable("sales", {
 	}
 });
 
+export const sharedCarts = pgTable("shared_carts", {
+	id: uuid("id").defaultRandom().primaryKey().notNull(),
+	token: text("token").notNull(),
+	customerName: text("customer_name"),
+	customerPhone: text("customer_phone"),
+	notes: text("notes"),
+	items: jsonb("items").notNull(),
+	status: text("status").default('pendiente').notNull(),
+	saleId: uuid("sale_id"),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	completedAt: timestamp("completed_at", { withTimezone: true, mode: 'string' }),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }),
+},
+(table) => {
+	return {
+		sharedCartsTokenKey: unique("shared_carts_token_key").on(table.token),
+		sharedCartsSaleIdFkey: foreignKey({
+			columns: [table.saleId],
+			foreignColumns: [sales.id],
+			name: "shared_carts_sale_id_fkey"
+		}).onDelete("set null"),
+	}
+});
+
 export const productAddonOptions = pgTable("product_addon_options", {
 	id: uuid("id").defaultRandom().primaryKey().notNull(),
 	groupId: uuid("group_id").notNull(),

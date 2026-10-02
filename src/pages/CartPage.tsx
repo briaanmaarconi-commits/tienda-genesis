@@ -17,6 +17,7 @@ import { z } from "zod";
 import SmartImage from "@/components/SmartImage";
 import ShippingSelector from "@/components/checkout/ShippingSelector";
 import type { ShippingQuote } from "@/hooks/useShippingQuotes";
+import { SHARED_CART_TOKEN_KEY } from "@/lib/sharedCart";
 
 const customerSchema = z.object({
   name: z.string().trim().min(2, "Nombre requerido").max(100),
@@ -111,7 +112,9 @@ const CartPage = () => {
         },
         items: orderItems,
         coupon_code: coupon?.code ?? null,
+        shared_cart_token: sessionStorage.getItem(SHARED_CART_TOKEN_KEY),
       });
+      sessionStorage.removeItem(SHARED_CART_TOKEN_KEY);
       const sale = { id: order.sale_id };
       if (order.transfer) setTransfer(order.transfer);
 

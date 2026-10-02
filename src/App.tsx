@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 // Public pages — lazy loaded
 const ProductPage = lazy(() => import("./pages/ProductPage"));
 const CartPage = lazy(() => import("./pages/CartPage"));
+const SharedCartPage = lazy(() => import("./pages/SharedCartPage"));
 const PaymentReturnPage = lazy(() => import("./pages/PaymentReturnPage"));
 const OffersPage = lazy(() => import("./pages/OffersPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -28,6 +29,8 @@ const AdminBanners = lazy(() => import("./pages/admin/AdminBanners"));
 const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
 const AdminSales = lazy(() => import("./pages/admin/AdminSales"));
 const AdminSaleNew = lazy(() => import("./pages/admin/AdminSaleNew"));
+const AdminSharedCarts = lazy(() => import("./pages/admin/AdminSharedCarts"));
+const AdminSharedCartNew = lazy(() => import("./pages/admin/AdminSharedCartNew"));
 const AdminCustomers = lazy(() => import("./pages/admin/AdminCustomers"));
 const AdminMetrics = lazy(() => import("./pages/admin/AdminMetrics"));
 const AdminExpenses = lazy(() => import("./pages/admin/AdminExpenses"));
@@ -73,6 +76,8 @@ const App = () => (
                   <Route path="productos" element={<AdminProducts />} />
                   <Route path="ventas" element={<AdminSales />} />
                   <Route path="ventas/nueva" element={<AdminSaleNew />} />
+                  <Route path="carritos-compartidos" element={<AdminSharedCarts />} />
+                  <Route path="carritos-compartidos/nuevo" element={<AdminSharedCartNew />} />
                   <Route path="clientes" element={<AdminCustomers />} />
                   <Route path="metricas" element={<AdminMetrics />} />
                   <Route path="gastos" element={<AdminExpenses />} />
@@ -89,6 +94,7 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/producto/:slug" element={<ProductPage />} />
                   <Route path="/carrito" element={<CartPage />} />
+                  <Route path="/carrito-compartido/:token" element={<SharedCartPage />} />
                   <Route path="/pago/:status" element={<PaymentReturnPage />} />
                   <Route path="/ofertas" element={<OffersPage />} />
                   <Route path="/lista-de-precios" element={<PriceListPage />} />

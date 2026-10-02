@@ -45,6 +45,7 @@ type CartCtx = {
   remove: (key: string) => void;
   setQty: (key: string, qty: number) => void;
   clear: () => void;
+  replace: (items: CartItem[]) => void;
   total: number;
   count: number;
 };
@@ -105,11 +106,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const setQty = (key: string, qty: number) =>
     setItems((p) => p.map((i) => (i.key === key ? { ...i, qty: Math.max(1, qty) } : i)));
   const clear = () => setItems([]);
+  const replace = (newItems: CartItem[]) => setItems(newItems);
 
   const total = items.reduce((s, i) => s + computeLineTotal(i.product, i.qty), 0);
   const count = items.reduce((s, i) => s + i.qty, 0);
 
-  return <Ctx.Provider value={{ items, add, remove, setQty, clear, total, count }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ items, add, remove, setQty, clear, replace, total, count }}>{children}</Ctx.Provider>;
 };
 
 export const useCart = () => {
