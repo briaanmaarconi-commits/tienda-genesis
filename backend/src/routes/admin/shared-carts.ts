@@ -9,6 +9,15 @@ import { env } from "../../env.js";
 // Mirrors the frontend's CartItem/CartProduct shape (src/contexts/CartContext.tsx)
 // so the item array can be written straight into cart state on the client side,
 // with no server-side reshaping.
+const CartAddonInput = z.object({
+  group_id: z.string(),
+  group_name: z.string(),
+  option_id: z.string(),
+  option_name: z.string(),
+  extra_price: z.number(),
+  per_unit: z.boolean().optional(),
+  multiplier: z.number().optional(),
+});
 const CartProductInput = z.object({
   slug: z.string(),
   name: z.string(),
@@ -21,6 +30,7 @@ const CartProductInput = z.object({
   image_focal_y: z.number().nullable().optional(),
   image_zoom: z.number().nullable().optional(),
   image_fit: z.string().nullable().optional(),
+  addons: z.array(CartAddonInput).optional(),
 });
 const CartItemInput = z.object({
   key: z.string(),
