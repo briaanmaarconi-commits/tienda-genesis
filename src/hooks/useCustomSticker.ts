@@ -36,7 +36,7 @@ export function computeStickerPrice(c: {
   size: { price_multiplier: number };
   quantity: { quantity: number; discount_pct: number };
 }) {
-  const unit = (c.material.base_price + c.finish.surcharge) * c.size.price_multiplier;
-  const gross = unit * c.quantity.quantity;
-  return Math.round(gross * (1 - c.quantity.discount_pct / 100));
+  const unit = (Number(c.material.base_price) + Number(c.finish.surcharge)) * Number(c.size.price_multiplier);
+  const gross = unit * Number(c.quantity.quantity);
+  return Math.round(gross * (1 - Number(c.quantity.discount_pct) / 100));
 }
