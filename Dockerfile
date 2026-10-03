@@ -6,6 +6,9 @@ RUN npm ci
 
 COPY . .
 
+ARG VITE_META_PIXEL_ID="2845894399129197"
+ENV VITE_META_PIXEL_ID=$VITE_META_PIXEL_ID
+
 RUN npm run build
 
 FROM nginx:alpine AS runtime

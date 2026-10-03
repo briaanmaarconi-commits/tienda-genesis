@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/contexts/CartContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Layout from "@/components/Layout";
+import MetaPixel from "@/components/MetaPixel";
 import Index from "./pages/Index";
 
 // Public pages — lazy loaded
@@ -66,6 +67,7 @@ const App = () => (
       <AuthProvider>
         <CartProvider>
           <BrowserRouter>
+            <MetaPixel />
             <Suspense fallback={<PageFallback />}>
               <Routes>
                 <Route path="/admin/login" element={<AdminLogin />} />
