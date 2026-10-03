@@ -14,6 +14,8 @@ import StickerPicker from "@/components/StickerPicker";
 import CustomStickerConfigurator from "@/components/CustomStickerConfigurator";
 import ShippingEstimator from "@/components/ShippingEstimator";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
+import ProductPixel from "@/components/ProductPixel";
+import { trackWhatsAppContact } from "@/lib/metaPixel";
 
 
 const variantTitle = (v: any) => {
@@ -155,6 +157,7 @@ const ProductPage = () => {
 
   return (
     <div className="container py-10">
+      <ProductPixel key={slug} product={product} />
       <nav className="mb-6 text-sm text-muted-foreground">
         <Link to="/" className="hover:text-primary">Inicio</Link> /{" "}
         <span className="text-foreground">{product.name}</span>
@@ -190,7 +193,7 @@ const ProductPage = () => {
             <div className="mt-6">
               <CustomStickerConfigurator product={{ slug: product.slug, name: product.name }} />
               {waNum && (
-                <a href={waLink} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 rounded-full border border-[hsl(142_70%_45%)] px-6 py-3 text-sm font-semibold text-[hsl(142_70%_45%)] transition hover:bg-[hsl(142_70%_45%)] hover:text-white">
+                <a href={waLink} onClick={() => trackWhatsAppContact("product", product)} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 rounded-full border border-[hsl(142_70%_45%)] px-6 py-3 text-sm font-semibold text-[hsl(142_70%_45%)] transition hover:bg-[hsl(142_70%_45%)] hover:text-white">
                   {isDesignProduct ? <MessageCircle className="h-4 w-4" /> : <WhatsAppIcon className="h-4 w-4" />} {waLabel}
                 </a>
               )}
@@ -202,7 +205,7 @@ const ProductPage = () => {
                 folders={((product as any).sticker_folders ?? []) as any}
               />
               {waNum && (
-                <a href={waLink} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 rounded-full border border-[hsl(142_70%_45%)] px-6 py-3 text-sm font-semibold text-[hsl(142_70%_45%)] transition hover:bg-[hsl(142_70%_45%)] hover:text-white">
+                <a href={waLink} onClick={() => trackWhatsAppContact("product", product)} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 rounded-full border border-[hsl(142_70%_45%)] px-6 py-3 text-sm font-semibold text-[hsl(142_70%_45%)] transition hover:bg-[hsl(142_70%_45%)] hover:text-white">
                   {isDesignProduct ? <MessageCircle className="h-4 w-4" /> : <WhatsAppIcon className="h-4 w-4" />} {waLabel}
                 </a>
               )}
@@ -341,7 +344,7 @@ const ProductPage = () => {
                 <ShoppingCart /> {!addonsOk ? "Elegí una opción" : totalItems === 0 ? "Elegí cantidad" : "Agregar al carrito"}
               </Button>
               {waNum && (
-                <a href={waLink} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 rounded-full border border-[hsl(142_70%_45%)] px-6 py-3 text-sm font-semibold text-[hsl(142_70%_45%)] transition hover:bg-[hsl(142_70%_45%)] hover:text-white">
+                <a href={waLink} onClick={() => trackWhatsAppContact("product", product)} target="_blank" rel="noopener noreferrer" className="mt-4 flex items-center justify-center gap-2 rounded-full border border-[hsl(142_70%_45%)] px-6 py-3 text-sm font-semibold text-[hsl(142_70%_45%)] transition hover:bg-[hsl(142_70%_45%)] hover:text-white">
                   {isDesignProduct ? <MessageCircle className="h-4 w-4" /> : <WhatsAppIcon className="h-4 w-4" />} {waLabel}
                 </a>
               )}
