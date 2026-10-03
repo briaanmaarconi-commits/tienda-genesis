@@ -1,9 +1,9 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useProduct, useSiteSettings } from "@/hooks/useShopData";
 import { Button } from "@/components/ui/button";
 import { useCart, type CartAddon } from "@/contexts/CartContext";
 import { formatPrice } from "@/lib/helpers";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, ShoppingCart, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +26,10 @@ const variantTitle = (v: any) => {
 
 const ProductPage = () => {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
+  const requestedPack = searchParams.get("pack");
+  const catalogEntry = searchParams.get("catalog") === "meta";
+  const appliedCatalogLink = useRef("");
   const { data: product, isLoading } = useProduct(slug);
   const { data: site } = useSiteSettings();
   const { add } = useCart();
@@ -81,6 +85,19 @@ const ProductPage = () => {
   }, [product]);
 
   const [addonSelections, setAddonSelections] = useState<Record<string, string>>({});
+
+  // Apply an incoming catalog configuration once, without overwriting later
+  // customer choices when product data refreshes in the background.
+  useEffect(() => {
+    const key = JSON.stringify([slug, requestedPack, catalogEntry]);
+    if (!product || product.slug !== slug || appliedCatalogLink.current === key) return;
+    appliedCatalogLink.current = key;
+    if (!requestedPack || !product.packs?.some((p: any) => p.id === requestedPack)) return;
+    setQtys({ [requestedPack]: 1 });
+    if (catalogEntry) {
+      setAddonSelections(Object.fromEntries(addonGroups.filter(g => g.required).map(g => [g.id, g.options[0].id])));
+    }
+  }, [product, slug, requestedPack, catalogEntry, addonGroups]);
 
   // Default-select the first option for each required group
   useEffect(() => {

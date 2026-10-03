@@ -7,6 +7,7 @@ import { env } from "./env.js";
 import { attachUser } from "./middleware/auth.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerPublicRoutes } from "./routes/public.js";
+import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerShippingRoutes } from "./routes/shipping.js";
 import { registerStorage } from "./storage/index.js";
 import { registerAdminRoutes } from "./routes/admin/index.js";
@@ -47,6 +48,7 @@ app.get("/api/health", async () => ({ ok: true }));
 
 await registerAuthRoutes(app);
 await registerPublicRoutes(app);
+await registerCatalogRoutes(app);
 await registerShippingRoutes(app);
 await registerStorage(app);
 await registerSharedCartRoutes(app);
