@@ -3,6 +3,7 @@ import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { sales, saleItems, customers } from "../../db/schema.js";
 import { sendShippingEmail } from "../../email/sendShippingEmail.js";
+import { markPurchasePaid } from "../../lib/purchaseTracking.js";
 
 type LineItem = { product_id: string | null; product_name: string; unit_price: number; quantity: number; unit_cost: number };
 
@@ -109,11 +110,15 @@ export async function registerAdminSaleRoutes(app: FastifyInstance) {
   app.put("/sales/:id/status", async (req) => {
     const { id } = req.params as { id: string };
     const { status } = req.body as { status: string };
-    const [row] = await db
+    const row = await db.transaction(async tx => {
+      const [updated] = await tx
       .update(sales)
       .set({ status: status as (typeof sales.status.enumValues)[number], updatedAt: new Date().toISOString() })
       .where(eq(sales.id, id))
       .returning();
+      if (updated && status === "abonado") await markPurchasePaid(tx, id);
+      return updated;
+    });
     return row;
   });
 
@@ -153,7 +158,8 @@ export async function registerAdminSaleRoutes(app: FastifyInstance) {
     const [before] = await db.select({ status: sales.status }).from(sales).where(eq(sales.id, id)).limit(1);
     const becomesEnviada = body.status === "enviada" && before?.status !== "enviada";
 
-    const [row] = await db
+    const row = await db.transaction(async tx => {
+      const [updated] = await tx
       .update(sales)
       .set({
         status: body.status as (typeof sales.status.enumValues)[number],
@@ -164,6 +170,9 @@ export async function registerAdminSaleRoutes(app: FastifyInstance) {
       })
       .where(eq(sales.id, id))
       .returning();
+      if (updated && body.status === "abonado") await markPurchasePaid(tx, id);
+      return updated;
+    });
 
     let emailResult: Awaited<ReturnType<typeof sendShippingEmail>> | null = null;
     if (becomesEnviada && body.tracking_code?.trim()) {

@@ -11,7 +11,7 @@ import { computeLineTotal } from "@/contexts/CartContext";
 
 const statusLabel: Record<string, string> = {
   pendiente: "Pendiente",
-  completado: "Comprado",
+  completado: "Pedido creado · pago sin confirmar",
 };
 
 const AdminSharedCarts = () => {
@@ -55,7 +55,7 @@ const AdminSharedCarts = () => {
                   <p className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString("es-AR")}</p>
                 </div>
                 <Badge variant={c.status === "completado" ? "default" : "outline"}>
-                  {statusLabel[c.status] ?? c.status}
+                  {c.sale_status === "cancelada" ? "Pedido cancelado" : c.paid_at || c.sale_status === "abonado" ? "Pago confirmado" : statusLabel[c.status] ?? c.status}
                 </Badge>
               </div>
               <div className="mt-2 text-sm text-muted-foreground">
@@ -68,6 +68,7 @@ const AdminSharedCarts = () => {
               </div>
               <div className="mt-1 text-sm font-bold">{formatPrice(total)} <span className="font-normal text-muted-foreground">(sin envío)</span></div>
               <div className="mt-3 flex gap-2">
+                {c.sale_id && <span className="text-xs text-muted-foreground">Pedido #{c.order_number ?? c.sale_id.slice(0, 8)}{c.meta_delivered_at ? " · Compra enviada a Meta" : c.paid_at ? " · Envío a Meta pendiente" : ""}</span>}
                 {c.status === "pendiente" && (
                   <>
                     <Button size="sm" variant="outline" onClick={() => copyLink(c.token)}><Copy size={14} /> Copiar link</Button>

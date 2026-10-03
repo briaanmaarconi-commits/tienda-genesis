@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
-import { desc, eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { sharedCarts } from "../../db/schema.js";
 import { env } from "../../env.js";
@@ -46,8 +46,20 @@ const CreateBody = z.object({
 });
 
 export async function registerAdminSharedCartRoutes(app: FastifyInstance) {
+  app.get("/purchase-tracking", async () => {
+    const result = await db.execute(sql`SELECT
+      count(*) FILTER (WHERE paid_at IS NOT NULL AND delivered_at IS NOT NULL)::int AS delivered,
+      count(*) FILTER (WHERE paid_at IS NOT NULL AND delivered_at IS NULL AND paid_at > now() - interval '7 days')::int AS pending,
+      count(*) FILTER (WHERE paid_at IS NOT NULL AND delivered_at IS NULL AND paid_at <= now() - interval '7 days')::int AS expired
+      FROM purchase_tracking`);
+    return { enabled: env.META_CAPI_ENABLED, test_mode: !!env.META_TEST_EVENT_CODE, ...result.rows[0] };
+  });
   app.get("/shared-carts", async () => {
-    return db.select().from(sharedCarts).orderBy(desc(sharedCarts.createdAt));
+    const result = await db.execute(sql`SELECT c.*, s.status AS sale_status, s.order_number,
+      p.paid_at, p.delivered_at AS meta_delivered_at, p.last_error AS meta_error
+      FROM shared_carts c LEFT JOIN sales s ON s.id = c.sale_id
+      LEFT JOIN purchase_tracking p ON p.sale_id = c.sale_id ORDER BY c.created_at DESC`);
+    return result.rows;
   });
 
   app.post("/shared-carts", async (req, reply) => {

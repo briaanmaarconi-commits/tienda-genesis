@@ -85,6 +85,7 @@ const CartPage = () => {
         return {
           product_name: `${it.product.name}${it.product.label ? ` (${it.product.label})` : ""}`,
           product_slug: it.product.slug,
+          pack_id: /^[0-9a-f-]{36}$/i.test(it.product.variantId ?? "") ? it.product.variantId : null,
           pack_units: it.product.units ?? null,
           unit_price: it.product.price,
           quantity: it.qty,
@@ -113,6 +114,10 @@ const CartPage = () => {
         items: orderItems,
         coupon_code: coupon?.code ?? null,
         shared_cart_token: sessionStorage.getItem(SHARED_CART_TOKEN_KEY),
+        tracking: Object.fromEntries(["_fbp", "_fbc"].flatMap(name => {
+          const value = document.cookie.split("; ").find(c => c.startsWith(`${name}=`))?.slice(name.length + 1);
+          return value && value.length <= 350 ? [[name.slice(1), value]] : [];
+        })),
       });
       sessionStorage.removeItem(SHARED_CART_TOKEN_KEY);
       const sale = { id: order.sale_id };
