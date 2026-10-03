@@ -5,6 +5,8 @@ import { db } from "../db/index.js";
 import { sales, customers, saleItems } from "../db/schema.js";
 import { sendOrderConfirmation } from "../email/sendOrderConfirmation.js";
 import { sendAdminOrderNotification } from "../email/sendAdminOrderNotification.js";
+import { markPurchasePaid } from "../lib/purchaseTracking.js";
+import { verifiedMpPurchase } from "../lib/purchaseEvent.js";
 
 type MpItem = { title: string; quantity: number; unit_price: number; currency_id: "ARS" };
 
@@ -127,13 +129,26 @@ export async function registerMercadoPagoRoutes(app: FastifyInstance) {
 
       const newStatus = status === "approved" ? "abonado" : status === "rejected" || status === "cancelled" ? "cancelada" : undefined;
 
-      const [prev] = await db.select({ status: sales.status }).from(sales).where(eq(sales.id, saleId)).limit(1);
-      await db
-        .update(sales)
-        .set({ mpPaymentId: String(paymentId), mpStatus: status, ...(newStatus ? { status: newStatus } : {}) })
-        .where(eq(sales.id, saleId));
+      if (!/^[0-9a-f-]{36}$/i.test(saleId)) return reply.send("ok invalid ref");
+      const prev = await db.transaction(async tx => {
+        const [before] = await tx.select().from(sales).where(eq(sales.id, saleId)).limit(1).for("update");
+        if (!before) return undefined;
+        const confirmed = verifiedMpPurchase(pay, Number(before.total));
+        if (status === "approved" && !confirmed) {
+          req.log.warn({ saleId }, "MP approved payment does not match a live ARS order total");
+          return undefined;
+        }
+        // Old notifications for another payment attempt must not cancel a paid order.
+        if (before.mpStatus === "approved" && !confirmed) return undefined;
+        const keepFulfillment = ["confirmada", "enviada", "entregada"].includes(before.status);
+        await tx.update(sales).set({ mpPaymentId: String(paymentId), mpStatus: status,
+          ...(newStatus && !(confirmed && keepFulfillment) ? { status: newStatus } : {}),
+        }).where(eq(sales.id, saleId));
+        if (confirmed) await markPurchasePaid(tx, saleId);
+        return before;
+      });
 
-      if (newStatus === "abonado" && prev?.status !== "abonado") {
+      if (prev && newStatus === "abonado" && prev.mpStatus !== "approved") {
         try {
           await sendOrderConfirmation(saleId);
         } catch (err) {

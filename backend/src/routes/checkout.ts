@@ -2,11 +2,15 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { coupons, customers, sales, saleItems, products, paymentMethods, siteSettings, sharedCarts } from "../db/schema.js";
+import { coupons, customers, sales, saleItems, products, productPacks, paymentMethods, siteSettings, sharedCarts } from "../db/schema.js";
 import { sendAdminOrderNotification } from "../email/sendAdminOrderNotification.js";
+import { purchaseSnapshot } from "../lib/purchaseEvent.js";
+import { savePurchaseSnapshot } from "../lib/purchaseTracking.js";
+import { env } from "../env.js";
 
 const ItemInput = z.object({
   product_slug: z.string().optional(),
+  pack_id: z.string().uuid().nullable().optional(),
   product_name: z.string(),
   unit_price: z.number(),
   quantity: z.number(),
@@ -40,6 +44,7 @@ const CheckoutBody = z.object({
   items: z.array(ItemInput).min(1).max(200),
   coupon_code: z.string().max(64).nullable().optional(),
   shared_cart_token: z.string().max(64).nullable().optional(),
+  tracking: z.object({ fbp: z.string().max(350).optional(), fbc: z.string().max(350).optional() }).optional(),
 });
 
 export async function registerCheckoutRoutes(app: FastifyInstance) {
@@ -80,6 +85,10 @@ export async function registerCheckoutRoutes(app: FastifyInstance) {
     const total = Math.max(0, subtotal - discountAmount) + shippingCost + surcharge;
 
     const saleId = await db.transaction(async (tx) => {
+      if (shared_cart_token?.trim()) {
+        const locked = await tx.execute(sql`SELECT id FROM shared_carts WHERE token = ${shared_cart_token.trim()} AND status = 'pendiente' AND (expires_at IS NULL OR expires_at > now()) FOR UPDATE`);
+        if (!locked.rows.length) throw Object.assign(new Error("Este enlace ya fue utilizado o venció."), { statusCode: 409 });
+      }
       const [customerRow] = await tx
         .insert(customers)
         .values({
@@ -160,6 +169,19 @@ export async function registerCheckoutRoutes(app: FastifyInstance) {
           .set({ status: "completado", saleId: saleRow.id, completedAt: new Date().toISOString() })
           .where(and(eq(sharedCarts.token, shared_cart_token.trim()), eq(sharedCarts.status, "pendiente")));
       }
+
+      const requestedPacks = items.map(it => it.pack_id).filter((id): id is string => !!id);
+      const packs = requestedPacks.length ? await tx.select({ id: productPacks.id, productId: productPacks.productId }).from(productPacks).where(inArray(productPacks.id, requestedPacks)) : [];
+      const contents = items.flatMap(it => {
+        const product = it.product_slug ? productsBySlug.get(it.product_slug.trim()) : undefined;
+        const pack = packs.find(p => p.id === it.pack_id && p.productId === product?.id);
+        return pack ? [{ id: `genesis-pack-${pack.id}`, quantity: Math.max(1, Math.floor(it.quantity || 1)) }] : [];
+      });
+      await savePurchaseSnapshot(tx, saleRow.id, purchaseSnapshot({
+        saleId: saleRow.id, customerId: customerRow.id, email: customer.email, total,
+        userAgent: req.headers["user-agent"], fbp: parsed.data.tracking?.fbp, fbc: parsed.data.tracking?.fbc,
+        origin: env.FRONTEND_ORIGIN, contents,
+      }));
 
       return saleRow.id;
     });

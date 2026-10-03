@@ -32,8 +32,10 @@ import { registerSharedCartRoutes } from "./routes/shared-carts.js";
 import { registerCheckoutRoutes } from "./routes/checkout.js";
 import { registerMercadoPagoRoutes } from "./routes/mercadopago.js";
 import { deepSnakeCase } from "./lib/snakeCase.js";
+import { initializePurchaseTracking, startPurchaseDelivery } from "./lib/purchaseTracking.js";
 
 const app = Fastify({ logger: true });
+await initializePurchaseTracking();
 
 await app.register(cors, { origin: env.FRONTEND_ORIGIN, credentials: true });
 await app.register(cookie);
@@ -74,6 +76,8 @@ await registerAdminRoutes(app, async (admin) => {
   await registerAdminSaleRoutes(admin);
   await registerAdminSharedCartRoutes(admin);
 });
+
+void startPurchaseDelivery(app)?.();
 
 app
   .listen({ port: env.PORT, host: "0.0.0.0" })
