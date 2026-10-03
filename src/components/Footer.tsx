@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Facebook, Instagram, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { useSiteSettings } from "@/hooks/useShopData";
 import { Skeleton } from "@/components/ui/skeleton";
+import { trackWhatsAppContact } from "@/lib/metaPixel";
 
 const Footer = () => {
   const { data: s, isLoading } = useSiteSettings();
@@ -21,7 +22,7 @@ const Footer = () => {
           <div className="mt-4 flex gap-3">
             {s?.instagram_url && <a href={s.instagram_url} aria-label="Instagram" className="rounded-full bg-primary-foreground/10 p-2 hover:bg-primary-foreground/20"><Instagram size={18} /></a>}
             {s?.facebook_url && <a href={s.facebook_url} aria-label="Facebook" className="rounded-full bg-primary-foreground/10 p-2 hover:bg-primary-foreground/20"><Facebook size={18} /></a>}
-            {s?.whatsapp && <a href={`https://wa.me/${s.whatsapp.replace(/\D/g, "")}`} aria-label="WhatsApp" className="rounded-full bg-primary-foreground/10 p-2 hover:bg-primary-foreground/20"><MessageCircle size={18} /></a>}
+            {s?.whatsapp && <a href={`https://wa.me/${s.whatsapp.replace(/\D/g, "")}`} onClick={() => trackWhatsAppContact("footer")} aria-label="WhatsApp" className="rounded-full bg-primary-foreground/10 p-2 hover:bg-primary-foreground/20"><MessageCircle size={18} /></a>}
           </div>
         </div>
         <div>

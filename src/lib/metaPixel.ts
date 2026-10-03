@@ -20,8 +20,7 @@ export function isPixelPage(pathname: string): boolean {
   return /^\/$|^\/(ofertas|promos|lista-de-precios|info|nosotros)\/?$|^\/producto\/[^/]+\/?$/.test(pathname);
 }
 
-/** Called by the public route tracker, never by the admin or payment flows. */
-export function trackPageView(): void {
+function initializePixel(): string | undefined {
   const id = import.meta.env.VITE_META_PIXEL_ID?.trim();
   if (!import.meta.env.PROD || !id || !/^\d{5,25}$/.test(id)) return;
 
@@ -48,5 +47,51 @@ export function trackPageView(): void {
     window.fbq("init", id);
     initialized = true;
   }
-  window.fbq("trackSingle", id, "PageView");
+  return id;
+}
+
+function trackEvent(name: "PageView" | "ViewContent" | "Contact", params?: Record<string, unknown>): void {
+  // A blocked or failing analytics SDK must never prevent navigation or contact.
+  try {
+    const id = initializePixel();
+    if (id) window.fbq!("trackSingle", id, name, params ?? {});
+  } catch {
+    // Tracking is best effort; the shop remains usable.
+  }
+}
+
+export function trackPageView(): void {
+  trackEvent("PageView");
+}
+
+export type PixelProduct = {
+  id: string;
+  slug: string;
+  name: string;
+  category?: { name?: string } | null;
+};
+
+function productParams(product: PixelProduct): Record<string, unknown> {
+  return {
+    content_ids: [String(product.id)],
+    content_type: "product",
+    content_name: product.name,
+    ...(product.category?.name ? { content_category: product.category.name } : {}),
+    product_slug: product.slug,
+  };
+}
+
+export function trackProductView(product: PixelProduct): void {
+  if (!isPixelPage(window.location.pathname)) return;
+  trackEvent("ViewContent", productParams(product));
+}
+
+export function trackWhatsAppContact(source: "floating" | "footer" | "product", product?: PixelProduct): void {
+  if (!isPixelPage(window.location.pathname)) return;
+  trackEvent("Contact", {
+    contact_channel: "whatsapp",
+    contact_source: source,
+    page_path: window.location.pathname,
+    ...(product ? productParams(product) : {}),
+  });
 }

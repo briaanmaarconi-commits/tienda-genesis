@@ -1,5 +1,6 @@
 import { MessageCircle } from "lucide-react";
 import { useSiteSettings } from "@/hooks/useShopData";
+import { trackWhatsAppContact } from "@/lib/metaPixel";
 
 const WhatsAppFloat = () => {
   const { data } = useSiteSettings();
@@ -8,6 +9,7 @@ const WhatsAppFloat = () => {
   return (
     <a
       href={`https://wa.me/${num}`}
+      onClick={() => trackWhatsAppContact("floating")}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Contactar por WhatsApp"
