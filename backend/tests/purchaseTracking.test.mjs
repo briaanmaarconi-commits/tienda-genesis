@@ -44,14 +44,14 @@ test('payment transaction, repeated webhook, retries and persistent delivery mar
       await tx.execute(sql`UPDATE sales SET status = 'abonado' WHERE id = ${id}::uuid`);
       await markPurchasePaid(tx, id);
     });
-    const paidAt = (await state()).paid_at.toISOString();
+    const paidAt = new Date((await state()).paid_at).toISOString();
     globalThis.fetch = async (_url, opts) => { sent.push(JSON.parse(opts.body)); throw Error('timeout after sending'); };
     await flush();
     assert.equal((await state()).delivered_at, null);
     assert.equal((await state()).last_error, 'network_error');
     await pool.query('UPDATE purchase_tracking SET next_attempt_at = now() WHERE sale_id = $1', [id]);
     await db.transaction(tx => markPurchasePaid(tx, id));
-    assert.equal((await state()).paid_at.toISOString(), paidAt);
+    assert.equal(new Date((await state()).paid_at).toISOString(), paidAt);
     globalThis.fetch = async (_url, opts) => { sent.push(JSON.parse(opts.body)); return { ok: true, json: async () => ({ events_received: 1 }) }; };
     await flush();
     assert.deepEqual(sent[0].data, sent[1].data, 'retry uses identical event ID/time');
