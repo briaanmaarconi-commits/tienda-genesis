@@ -11,8 +11,14 @@ import { Plus, Trash2, Copy } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/helpers";
+import {
+  useStickerMaterials, useStickerFinishes, useStickerShapes, useStickerSizes, useStickerQuantities,
+  computeStickerPrice,
+} from "@/hooks/useCustomSticker";
 
-type Row = { rowId: string; productId: string; packId: string; qty: number; addons: Record<string, string> };
+type StickerSel = { materialId: string; finishId: string; shapeId: string; sizeId: string; quantityId: string };
+type Row = { rowId: string; productId: string; packId: string; qty: number; addons: Record<string, string>; sticker?: StickerSel };
+const EMPTY_STICKER: StickerSel = { materialId: "", finishId: "", shapeId: "", sizeId: "", quantityId: "" };
 
 // Same semantics as ProductPage.tsx's chosenAddons: one option per group
 // (radio-style), required groups default to their first option.
@@ -44,6 +50,11 @@ function buildAddons(detail: any, selections: Record<string, string>): CartAddon
 const AdminSharedCartNew = () => {
   const nav = useNavigate();
   const { data: products = [] } = useProducts({ activeOnly: false });
+  const { data: stMaterials = [] } = useStickerMaterials();
+  const { data: stFinishes = [] } = useStickerFinishes();
+  const { data: stShapes = [] } = useStickerShapes();
+  const { data: stSizes = [] } = useStickerSizes();
+  const { data: stQuantities = [] } = useStickerQuantities();
   const [productDetails, setProductDetails] = useState<Record<string, any>>({});
 
   const [rows, setRows] = useState<Row[]>([]);
@@ -89,9 +100,46 @@ const AdminSharedCartNew = () => {
       .filter((g) => g.options.length > 0);
   };
 
+  // Calcos personalizados: no tienen packs; el precio sale de material/medida/cantidad
+  // (misma fórmula que el configurador público) y el item va con qty 1.
+  const toStickerProduct = (product: any, sel: StickerSel): CartProduct | null => {
+    const material: any = stMaterials.find((m: any) => m.id === sel.materialId);
+    const finish: any = stFinishes.find((f: any) => f.id === sel.finishId) ?? { id: "none", name: "Estándar", surcharge: 0 };
+    const shape: any = stShapes.find((x: any) => x.id === sel.shapeId);
+    const size: any = stSizes.find((x: any) => x.id === sel.sizeId);
+    const quantity: any = stQuantities.find((q: any) => q.id === sel.quantityId);
+    if (!material || !shape || !size || !quantity) return null;
+    const image = product.images?.[0];
+    return {
+      slug: product.slug,
+      name: product.name,
+      price: computeStickerPrice({ material, finish, size, quantity }),
+      label: `${material.name} · ${shape.name} · ${size.label} · ${quantity.quantity}u`,
+      variantId: `${material.id}-${size.id}-${quantity.id}`,
+      image_url: image?.url ?? null,
+      image_focal_x: image?.focal_x != null ? Number(image.focal_x) : null,
+      image_focal_y: image?.focal_y != null ? Number(image.focal_y) : null,
+      image_zoom: image?.zoom != null ? Number(image.zoom) : null,
+      image_fit: image?.fit ?? null,
+      customStickerConfig: {
+        material: { id: material.id, name: material.name, base_price: Number(material.base_price) },
+        finish: { id: finish.id, name: finish.name, surcharge: Number(finish.surcharge) },
+        shape: { id: shape.id, name: shape.name },
+        size: {
+          id: size.id, label: size.label, width_cm: Number(size.width_cm), height_cm: Number(size.height_cm),
+          price_multiplier: Number(size.price_multiplier),
+        },
+        quantity: { id: quantity.id, quantity: quantity.quantity, discount_pct: Number(quantity.discount_pct) },
+        file_url: null,
+        file_name: null,
+      },
+    };
+  };
+
   const toCartProduct = (row: Row): CartProduct | null => {
     const product: any = products.find((p: any) => p.id === row.productId);
     if (!product) return null;
+    if (product.product_type === "custom_sticker") return toStickerProduct(product, row.sticker ?? EMPTY_STICKER);
     const pack = product.packs?.find((pk: any) => pk.id === row.packId);
     const image = product.images?.[0];
     const detail = productDetails[product.slug];
@@ -184,13 +232,19 @@ const AdminSharedCartNew = () => {
             {rows.map((row) => {
               const product: any = products.find((p: any) => p.id === row.productId);
               const cartProduct = toCartProduct(row);
+              const isSticker = product?.product_type === "custom_sticker";
+              const sel = row.sticker ?? EMPTY_STICKER;
+              const setSel = (patch: Partial<StickerSel>) => updateRow(row.rowId, { sticker: { ...sel, ...patch } });
               const addonGroups = addonGroupsFor(row);
               return (
                 <div key={row.rowId} className="rounded-lg border p-3">
                   <div className="grid gap-2 sm:grid-cols-[2fr_1.5fr_80px_120px_auto] sm:items-end">
                     <div>
                       <Label className="text-xs">Producto</Label>
-                      <Select value={row.productId} onValueChange={(v) => updateRow(row.rowId, { productId: v, packId: "", addons: {} })}>
+                      <Select value={row.productId} onValueChange={(v) => {
+                        const p: any = products.find((x: any) => x.id === v);
+                        updateRow(row.rowId, { productId: v, packId: "", addons: {}, qty: 1, sticker: p?.product_type === "custom_sticker" ? { ...EMPTY_STICKER } : undefined });
+                      }}>
                         <SelectTrigger><SelectValue placeholder="Elegir..." /></SelectTrigger>
                         <SelectContent>
                           {products.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -202,9 +256,9 @@ const AdminSharedCartNew = () => {
                       <Select
                         value={row.packId}
                         onValueChange={(v) => updateRow(row.rowId, { packId: v })}
-                        disabled={!product?.packs?.length}
+                        disabled={isSticker || !product?.packs?.length}
                       >
-                        <SelectTrigger><SelectValue placeholder={product?.packs?.length ? "Elegir..." : "Base"} /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder={isSticker ? "Configurar abajo" : product?.packs?.length ? "Elegir..." : "Base"} /></SelectTrigger>
                         <SelectContent>
                           {(product?.packs ?? []).map((pk: any) => (
                             <SelectItem key={pk.id} value={pk.id}>
@@ -219,6 +273,7 @@ const AdminSharedCartNew = () => {
                       <Input
                         type="number"
                         min={1}
+                        disabled={isSticker}
                         value={row.qty}
                         onChange={(e) => updateRow(row.rowId, { qty: Math.max(1, Number(e.target.value)) })}
                       />
@@ -228,6 +283,31 @@ const AdminSharedCartNew = () => {
                     </div>
                     <Button variant="ghost" size="icon" onClick={() => removeRow(row.rowId)}><Trash2 /></Button>
                   </div>
+
+                  {isSticker && (
+                    <div className="mt-3 grid gap-2 border-t pt-3 sm:grid-cols-3">
+                      {([
+                        ["Material", "materialId", stMaterials, (m: any) => m.name],
+                        ["Terminación", "finishId", stFinishes, (f: any) => f.name],
+                        ["Forma", "shapeId", stShapes, (x: any) => x.name],
+                        ["Tamaño", "sizeId", stSizes, (x: any) => x.label],
+                        ["Cantidad", "quantityId", stQuantities, (q: any) => `${q.quantity} unidades${Number(q.discount_pct) > 0 ? ` (-${q.discount_pct}%)` : ""}`],
+                      ] as [string, keyof StickerSel, any[], (x: any) => string][]).map(([label, field, list, name]) => (
+                        <div key={field}>
+                          <Label className="text-xs">{label}</Label>
+                          <Select value={sel[field]} onValueChange={(v) => setSel({ [field]: v })}>
+                            <SelectTrigger><SelectValue placeholder="Elegir..." /></SelectTrigger>
+                            <SelectContent>
+                              {list.map((x: any) => <SelectItem key={x.id} value={x.id}>{name(x)}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                      <p className="text-xs text-muted-foreground sm:col-span-3">
+                        El precio es el total para esa cantidad. El cliente no sube archivo desde este link: coordinen el diseño aparte.
+                      </p>
+                    </div>
+                  )}
 
                   {addonGroups.length > 0 && (
                     <div className="mt-3 grid gap-2 border-t pt-3 sm:grid-cols-2">

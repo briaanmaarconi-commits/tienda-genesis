@@ -6,8 +6,8 @@ export type CustomStickerConfigCart = {
   shape: { id: string; name: string };
   size: { id: string; label: string; width_cm: number; height_cm: number; price_multiplier: number };
   quantity: { id: string; quantity: number; discount_pct: number };
-  file_url: string;
-  file_name: string;
+  file_url: string | null;
+  file_name: string | null;
 };
 
 export type CartAddon = {

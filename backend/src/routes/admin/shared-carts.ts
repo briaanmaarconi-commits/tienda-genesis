@@ -18,6 +18,15 @@ const CartAddonInput = z.object({
   per_unit: z.boolean().optional(),
   multiplier: z.number().optional(),
 });
+const CustomStickerConfigInput = z.object({
+  material: z.object({ id: z.string(), name: z.string(), base_price: z.number() }),
+  finish: z.object({ id: z.string(), name: z.string(), surcharge: z.number() }),
+  shape: z.object({ id: z.string(), name: z.string() }),
+  size: z.object({ id: z.string(), label: z.string(), width_cm: z.number(), height_cm: z.number(), price_multiplier: z.number() }),
+  quantity: z.object({ id: z.string(), quantity: z.number(), discount_pct: z.number() }),
+  file_url: z.string().nullable().optional(),
+  file_name: z.string().nullable().optional(),
+});
 const CartProductInput = z.object({
   slug: z.string(),
   name: z.string(),
@@ -31,6 +40,7 @@ const CartProductInput = z.object({
   image_zoom: z.number().nullable().optional(),
   image_fit: z.string().nullable().optional(),
   addons: z.array(CartAddonInput).optional(),
+  customStickerConfig: CustomStickerConfigInput.optional(),
 });
 const CartItemInput = z.object({
   key: z.string(),

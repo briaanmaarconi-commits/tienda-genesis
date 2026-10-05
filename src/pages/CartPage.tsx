@@ -274,9 +274,11 @@ const CartPage = () => {
                 <div className="mt-3 border-t pt-3 text-xs text-muted-foreground">
                   <p className="mb-1 font-semibold text-foreground">Configuración del calco</p>
                   <p>{product.customStickerConfig.material.name} · {product.customStickerConfig.finish.name} · {product.customStickerConfig.shape.name} · {product.customStickerConfig.size.label} · {product.customStickerConfig.quantity.quantity}u</p>
-                  <a href={product.customStickerConfig.file_url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-primary underline">
-                    📎 {product.customStickerConfig.file_name}
-                  </a>
+                  {product.customStickerConfig.file_url && (
+                    <a href={product.customStickerConfig.file_url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-primary underline">
+                      📎 {product.customStickerConfig.file_name}
+                    </a>
+                  )}
                 </div>
               )}
             </div>
