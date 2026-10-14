@@ -20,6 +20,9 @@ const schema = z.object({
   META_GRAPH_VERSION: z.string().regex(/^v\d+\.0$/).default("v26.0"),
   META_TEST_EVENT_CODE: z.string().max(100).default(""),
 
+  // Kill switch for the public "X compró Y" storefront notice.
+  RECENT_PURCHASES_ENABLED: z.enum(["true", "false"]).default("true").transform(v => v === "true"),
+
   FILE_SIGNING_SECRET: z.string().min(32),
   STORAGE_DIR: z.string().min(1),
   PUBLIC_ORIGIN: z.string().url(),
