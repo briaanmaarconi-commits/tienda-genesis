@@ -8,9 +8,9 @@ import { timeAgo } from "@/lib/timeAgo";
 type Purchase = { first_name: string; product: string; quantity: number; at: string };
 
 const DISMISS_KEY = "recent-purchase-dismissed";
-const FIRST_DELAY_MS = 8_000;
-const VISIBLE_MS = 6_000;
-const GAP_MS = 22_000;
+const FIRST_DELAY_MS = 3_000;
+const VISIBLE_MS = 4_500;
+const GAP_MS = 6_000;
 const MIN_PURCHASES = 3; // fewer than this looks staged
 // Don't cover checkout controls or the post-payment screens.
 const HIDDEN_ON = [/^\/carrito/, /^\/pago\//];
