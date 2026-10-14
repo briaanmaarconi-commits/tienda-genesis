@@ -38,7 +38,7 @@ export async function registerRecentPurchaseRoutes(app: FastifyInstance) {
     const purchases = [];
     for (const row of result.rows as any[]) {
       const firstName = firstNameOf(row.customer_name);
-      const full = String(row.product_name ?? "").replace(/s+/g, " ").trim();
+      const full = String(row.product_name ?? "").replace(/\s+/g, " ").trim();
       const product = full.length > 70 ? `${full.slice(0, 69)}…` : full;
       if (!firstName || !product) continue;
       purchases.push({
