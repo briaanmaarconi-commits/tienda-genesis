@@ -165,12 +165,13 @@ export function useShippingQuotes(opts: {
             // Correo Argentino
             if (m.provider === "correo") {
               const data = await api
-                .post<{ cost?: number; estimated_days?: number }>("/shipping/correo/quote", {
+                .post<{ cost?: number; estimated_days?: number | string }>("/shipping/correo/quote", {
                   postal_code_origin: origin,
                   postal_code_destination: postalCode,
                   weight_kg: totalWeight,
                   declared_value: Math.max(1000, cartTotal),
                   delivery_type: m.delivery_type === "sucursal" ? "sucursal" : "domicilio",
+                  service: /expres/i.test(`${m.tipo ?? ""} ${m.name ?? ""}`) ? "EP" : "CP",
                 })
                 .catch(() => null);
               if (data && typeof data.cost === "number" && data.cost > 0) {

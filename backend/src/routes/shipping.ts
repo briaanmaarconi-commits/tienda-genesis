@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import correoBranchesData from "../data/correo-branches.json" with { type: "json" };
+import { getRates, micorreoConfigured } from "../lib/micorreo.js";
 
 // Ports of the shipping edge functions. Everything here is unauthenticated
 // public HTTP/SOAP, no DB. `correo-quote` and OCA are confirmed dead code
@@ -23,7 +24,14 @@ const AndreaniQuoteBody = QuoteBody.extend({
   height_cm: z.number().positive().max(200).default(20),
 });
 
-const PostalCodeQuery = z.object({ postal_code: z.string().min(4).max(8) });
+const CorreoDimsBody = z.object({
+  service: z.enum(["CP", "EP"]).default("CP"), // CP = Clásico, EP = Expreso
+  length_cm: z.number().positive().max(150).default(20),
+  width_cm: z.number().positive().max(150).default(20),
+  height_cm: z.number().positive().max(150).default(20),
+});
+
+const PostalCodeQuery =z.object({ postal_code: z.string().min(4).max(8) });
 
 const ANDREANI_TIPO_DE_ENVIO_ID = "9c16612c-a916-48cf-9fbb-dbad2b097e9e";
 const OCA_PUBLIC_CUIT = "30708001606";
@@ -268,6 +276,36 @@ export async function registerShippingRoutes(app: FastifyInstance) {
     }
     const p = parsed.data;
     const weightGr = Math.round(p.weight_kg * 1000);
+
+    // Official API (exact tariff for this account). Only the legacy public
+    // calculator below is used when the MiCorreo credentials aren't set.
+    if (micorreoConfigured()) {
+      const dims = CorreoDimsBody.parse(req.body ?? {});
+      const want = p.delivery_type === "sucursal" ? "S" : "D";
+      try {
+        const rates = await getRates({
+          postalCodeOrigin: normalizeCP(p.postal_code_origin),
+          postalCodeDestination: normalizeCP(p.postal_code_destination),
+          deliveredType: want,
+          weightGr,
+          heightCm: dims.height_cm,
+          widthCm: dims.width_cm,
+          lengthCm: dims.length_cm,
+        });
+        const rate = rates.find((r) => r.deliveredType === want && r.productType === dims.service);
+        if (!rate || !(rate.price > 0)) {
+          reply.code(404).send({ error: "Sin tarifa", raw: rates });
+          return;
+        }
+        const { deliveryTimeMin: min, deliveryTimeMax: max } = rate;
+        const estimatedDays = min && max ? (min === max ? min : `${min} a ${max}`) : null;
+        return { cost: rate.price, currency: "ARS", estimated_days: estimatedDays, delivery_type: p.delivery_type, service: rate.productName };
+      } catch (err) {
+        req.log.error({ err }, "MiCorreo rates failed");
+        reply.code(502).send({ error: "Correo Argentino no disponible" });
+        return;
+      }
+    }
 
     const url = `https://www.correoargentino.com.ar/MicroSitios/calculadorDeEnvios/calcularPrecio?cpOrigen=${p.postal_code_origin}&cpDestino=${p.postal_code_destination}&peso=${weightGr}&largo=20&ancho=20&alto=20&valorDeclarado=${p.declared_value}`;
 

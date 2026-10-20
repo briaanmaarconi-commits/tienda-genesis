@@ -23,6 +23,13 @@ const schema = z.object({
   // Kill switch for the public "X compró Y" storefront notice.
   RECENT_PURCHASES_ENABLED: z.enum(["true", "false"]).default("true").transform(v => v === "true"),
 
+  // Correo Argentino "API MiCorreo". Optional: without all three the Correo
+  // quote falls back to the legacy public calculator.
+  MICORREO_USER: z.string().default(""),
+  MICORREO_PASSWORD: z.string().default(""),
+  MICORREO_CUSTOMER_ID: z.string().default(""),
+  MICORREO_ENV: z.enum(["prod", "test"]).default("prod"),
+
   FILE_SIGNING_SECRET: z.string().min(32),
   STORAGE_DIR: z.string().min(1),
   PUBLIC_ORIGIN: z.string().url(),
