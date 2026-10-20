@@ -113,7 +113,10 @@ export async function registerAdminSaleRoutes(app: FastifyInstance) {
   app.post("/sales/:id/correo-import", async (req) => {
     const { id } = req.params as { id: string };
     const { dry_run } = req.query as { dry_run?: string };
-    return importSaleToMiCorreo(id, { dryRun: dry_run === "1" || dry_run === "true" });
+    const result = await importSaleToMiCorreo(id, { dryRun: dry_run === "1" || dry_run === "true" });
+    // The payload goes out as a string: the global response serializer would otherwise
+    // snake_case its keys and the preview would not match what is really sent to Correo.
+    return result.status === "preview" ? { status: "preview", payload_json: JSON.stringify(result.payload, null, 2) } : result;
   });
 
   app.put("/sales/:id/status", async (req) => {

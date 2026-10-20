@@ -27,7 +27,7 @@ const CorreoImportPanel = ({ sale, onChanged }: { sale: any; onChanged: () => vo
     try {
       const res = await api.post<any>(`/admin/sales/${sale.id}/correo-import${dry ? "?dry_run=1" : ""}`);
       if (dry) {
-        if (res.status === "preview") setPreview(res.payload);
+        if (res.status === "preview") setPreview(res.payload_json);
         else toast.error(res.error ?? res.reason ?? "No se pudo armar el envío");
       } else if (res.status === "importado") {
         toast.success("Envío importado a MiCorreo");
@@ -62,7 +62,7 @@ const CorreoImportPanel = ({ sale, onChanged }: { sale: any; onChanged: () => vo
         )}
         <a href="https://micorreo.correoargentino.com.ar/landing" target="_blank" rel="noreferrer" className="text-primary underline text-xs">Abrir MiCorreo</a>
       </div>
-      {preview && <pre className="max-h-48 overflow-auto rounded bg-muted p-2 text-xs">{JSON.stringify(preview, null, 2)}</pre>}
+      {preview && <pre className="max-h-48 overflow-auto rounded bg-muted p-2 text-xs">{preview}</pre>}
     </div>
   );
 };
