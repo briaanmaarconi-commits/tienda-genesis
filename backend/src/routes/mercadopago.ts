@@ -1,3 +1,4 @@
+import { autoImportSale } from "../lib/correoImport.js";
 import type { FastifyInstance } from "fastify";
 import { eq } from "drizzle-orm";
 import { env } from "../env.js";
@@ -149,6 +150,7 @@ export async function registerMercadoPagoRoutes(app: FastifyInstance) {
       });
 
       if (prev && newStatus === "abonado" && prev.mpStatus !== "approved") {
+        autoImportSale(saleId, req.log);
         try {
           await sendOrderConfirmation(saleId);
         } catch (err) {

@@ -497,6 +497,9 @@ export const sales = pgTable("sales", {
 	shippingBranchName: text("shipping_branch_name"),
 	trackingCode: text("tracking_code"),
 	trackingCarrier: text("tracking_carrier"),
+	correoImportStatus: text("correo_import_status"),
+	correoImportError: text("correo_import_error"),
+	correoImportedAt: timestamp("correo_imported_at", { withTimezone: true, mode: 'string' }),
 },
 (table) => {
 	return {

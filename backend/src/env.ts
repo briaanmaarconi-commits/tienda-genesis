@@ -29,6 +29,8 @@ const schema = z.object({
   MICORREO_PASSWORD: z.string().default(""),
   MICORREO_CUSTOMER_ID: z.string().default(""),
   MICORREO_ENV: z.enum(["prod", "test"]).default("prod"),
+  // Import paid Correo orders into MiCorreo automatically (set "false" to only allow the manual button).
+  MICORREO_AUTO_IMPORT: z.enum(["true", "false"]).default("true").transform(v => v === "true"),
 
   FILE_SIGNING_SECRET: z.string().min(32),
   STORAGE_DIR: z.string().min(1),

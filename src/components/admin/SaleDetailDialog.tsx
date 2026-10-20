@@ -16,6 +16,57 @@ import { signStorageFiles } from "@/lib/storageFiles";
 const STATUSES = ["pendiente", "abonado", "confirmada", "enviada", "entregada", "cancelada"];
 const CARRIERS = ["Correo Argentino", "Andreani", "Otro"];
 
+// Estado de la importación del envío a MiCorreo (solo ventas con método "Correo Argentino").
+const CorreoImportPanel = ({ sale, onChanged }: { sale: any; onChanged: () => void }) => {
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<any>(null);
+  const status: string | null = sale.correo_import_status ?? null;
+
+  const run = async (dry: boolean) => {
+    setBusy(true);
+    try {
+      const res = await api.post<any>(`/admin/sales/${sale.id}/correo-import${dry ? "?dry_run=1" : ""}`);
+      if (dry) {
+        if (res.status === "preview") setPreview(res.payload);
+        else toast.error(res.error ?? res.reason ?? "No se pudo armar el envío");
+      } else if (res.status === "importado") {
+        toast.success("Envío importado a MiCorreo");
+      } else {
+        toast.error(res.error ?? res.reason ?? "No se importó");
+      }
+      if (!dry) onChanged();
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border p-3 text-sm space-y-2">
+      <p className="font-bold">📮 MiCorreo (Correo Argentino)</p>
+      {status === "importado" && (
+        <p className="text-green-700">
+          ✔ Importado a MiCorreo{sale.correo_imported_at ? ` el ${new Date(sale.correo_imported_at).toLocaleString("es-AR")}` : ""}. Imprimí el rótulo desde MiCorreo → Mis envíos.
+        </p>
+      )}
+      {status === "importando" && <p className="text-muted-foreground">Importando…</p>}
+      {status === "error" && <p className="text-destructive">✖ No se pudo importar: {sale.correo_import_error}</p>}
+      {!status && <p className="text-muted-foreground">Todavía no se importó. Se importa solo cuando el pago se confirma (estado "abonado").</p>}
+      <div className="flex flex-wrap items-center gap-2">
+        {status !== "importado" && status !== "importando" && (
+          <Button size="sm" disabled={busy} onClick={() => run(false)}>{status === "error" ? "Reintentar importación" : "Importar ahora"}</Button>
+        )}
+        {status !== "importado" && (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => run(true)}>Ver datos a enviar</Button>
+        )}
+        <a href="https://micorreo.correoargentino.com.ar/landing" target="_blank" rel="noreferrer" className="text-primary underline text-xs">Abrir MiCorreo</a>
+      </div>
+      {preview && <pre className="max-h-48 overflow-auto rounded bg-muted p-2 text-xs">{JSON.stringify(preview, null, 2)}</pre>}
+    </div>
+  );
+};
+
 const SaleDetailDialog = ({ id, onOpenChange }: { id: string | null; onOpenChange: (o: boolean) => void }) => {
   const { data: sale } = useSale(id ?? undefined);
   const qc = useQueryClient();
@@ -198,6 +249,9 @@ const SaleDetailDialog = ({ id, onOpenChange }: { id: string | null; onOpenChang
                 </div>
               );
             })()}
+            {(sale as any).shipping_method?.provider === "correo" && (
+              <CorreoImportPanel sale={sale} onChanged={() => qc.invalidateQueries({ queryKey: ["sale", id] })} />
+            )}
             <div>
               <p className="mb-2 font-bold">Items</p>
               <div className="space-y-2">

@@ -4,6 +4,7 @@ import { db } from "../../db/index.js";
 import { sales, saleItems, customers } from "../../db/schema.js";
 import { sendShippingEmail } from "../../email/sendShippingEmail.js";
 import { markPurchasePaid } from "../../lib/purchaseTracking.js";
+import { autoImportSale, importSaleToMiCorreo } from "../../lib/correoImport.js";
 
 type LineItem = { product_id: string | null; product_name: string; unit_price: number; quantity: number; unit_cost: number };
 
@@ -107,6 +108,14 @@ export async function registerAdminSaleRoutes(app: FastifyInstance) {
     return created;
   });
 
+  // Manual (re)import of a Correo Argentino order into MiCorreo. ?dry_run=1 returns the
+  // payload that would be sent without importing or touching the sale.
+  app.post("/sales/:id/correo-import", async (req) => {
+    const { id } = req.params as { id: string };
+    const { dry_run } = req.query as { dry_run?: string };
+    return importSaleToMiCorreo(id, { dryRun: dry_run === "1" || dry_run === "true" });
+  });
+
   app.put("/sales/:id/status", async (req) => {
     const { id } = req.params as { id: string };
     const { status } = req.body as { status: string };
@@ -119,6 +128,7 @@ export async function registerAdminSaleRoutes(app: FastifyInstance) {
       if (updated && status === "abonado") await markPurchasePaid(tx, id);
       return updated;
     });
+    if (row && status === "abonado") autoImportSale(id, req.log);
     return row;
   });
 
@@ -173,6 +183,7 @@ export async function registerAdminSaleRoutes(app: FastifyInstance) {
       if (updated && body.status === "abonado") await markPurchasePaid(tx, id);
       return updated;
     });
+    if (row && body.status === "abonado") autoImportSale(id, req.log);
 
     let emailResult: Awaited<ReturnType<typeof sendShippingEmail>> | null = null;
     if (becomesEnviada && body.tracking_code?.trim()) {

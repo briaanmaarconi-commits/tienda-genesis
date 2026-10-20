@@ -111,3 +111,30 @@ export async function getRates(p: {
   });
   return (data.rates ?? []).map((r) => ({ ...r, price: Number(r.price) }));
 }
+
+export type MiCorreoImport = {
+  extOrderId: string;
+  orderNumber: string;
+  recipient: { name: string; phone: string; cellPhone: string; email: string };
+  shipping: {
+    deliveryType: "D" | "S";
+    agency: string | null;
+    address: { streetName: string; streetNumber: string; floor: string; apartment: string; city: string; provinceCode: string; postalCode: string };
+    weight: number;
+    declaredValue: number;
+    height: number;
+    length: number;
+    width: number;
+  };
+};
+
+/** The API answers 402 "La orden ya fue importada con anterioridad." on repeats. */
+export const isAlreadyImported = (err: unknown) =>
+  err instanceof MiCorreoError && /ya fue importada/i.test(err.message);
+
+export async function importShipment(p: MiCorreoImport): Promise<{ createdAt?: string }> {
+  return call<{ createdAt?: string }>("/shipping/import", {
+    method: "POST",
+    body: { customerId: env.MICORREO_CUSTOMER_ID, ...p },
+  });
+}
