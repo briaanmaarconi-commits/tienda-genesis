@@ -9,8 +9,8 @@ const HOSTS = {
 } as const;
 
 export const paqarConfigured = () => Boolean(env.PAQAR_AGREEMENT && env.PAQAR_API_KEY);
-/** Orders can only be created once Correo gave us the registered sender id (senderData.id). */
-export const paqarCanCreateOrders = () => paqarConfigured() && Boolean(env.PAQAR_SENDER_ID);
+/** PAQ.AR order creation is opt-in (PAQAR_CREATE_ORDERS=true) until Correo enables the account for it. */
+export const paqarCanCreateOrders = () => paqarConfigured() && env.PAQAR_CREATE_ORDERS;
 
 export class PaqarError extends Error {
   constructor(message: string, readonly status: number, readonly body?: unknown) {
@@ -62,7 +62,7 @@ export async function checkAuth(): Promise<{ ok: boolean; status: number; messag
 }
 
 export type PaqarParty = {
-  name: string;
+  name?: string; // recipients only: SenderData rejects `name` (it uses businessName)
   areaCodePhone?: string; phoneNumber?: string; areaCodeCellphone?: string; cellphoneNumber?: string;
   email?: string; observation?: string;
   address: { streetName: string; streetNumber: string; cityName: string; floor: string; department: string; state: string; zipCode: string };
@@ -72,7 +72,7 @@ export type PaqarOrder = {
   sellerId?: string;
   trackingNumber?: string;
   order: {
-    senderData: PaqarParty & { id: string; businessName?: string };
+    senderData: PaqarParty & { id?: string; businessName?: string };
     shippingData: PaqarParty;
     parcels: { dimensions: { height: string; width: string; depth: string }; productWeight: string; productCategory: string; declaredValue: string }[];
     deliveryType: "homeDelivery" | "agency" | "locker";

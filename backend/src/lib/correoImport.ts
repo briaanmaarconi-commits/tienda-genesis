@@ -156,9 +156,8 @@ function toPaqar(d: SaleData): PaqarOrder {
     sellerId: env.PAQAR_AGREEMENT,
     order: {
       senderData: {
-        id: env.PAQAR_SENDER_ID,
+        ...(env.PAQAR_SENDER_ID ? { id: env.PAQAR_SENDER_ID } : {}),
         businessName: env.PAQAR_SENDER_NAME,
-        name: env.PAQAR_SENDER_NAME,
         address: {
           streetName: env.PAQAR_SENDER_STREET,
           streetNumber: env.PAQAR_SENDER_NUMBER,

@@ -36,7 +36,9 @@ const schema = z.object({
   PAQAR_AGREEMENT: z.string().default(""),
   PAQAR_API_KEY: z.string().default(""),
   PAQAR_ENV: z.enum(["prod", "test"]).default("prod"),
-  // Id of the registered sender (remitente) for the agreement; Correo rejects orders without it.
+  // Create orders through PAQ.AR (tracking number + label) instead of importing into MiCorreo.
+  PAQAR_CREATE_ORDERS: z.enum(["true", "false"]).default("false").transform(v => v === "true"),
+  // Registered sender id for the agreement, if Correo requires one (optional).
   PAQAR_SENDER_ID: z.string().default(""),
   // Sender printed on the label.
   PAQAR_SENDER_NAME: z.string().default("Genesis Impresiones"),
