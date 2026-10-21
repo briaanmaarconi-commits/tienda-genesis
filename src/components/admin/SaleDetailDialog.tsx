@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useSale } from "@/hooks/useSales";
 import { api } from "@/lib/api";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { formatPrice } from "@/lib/helpers";
 import { Trash2, Send, Download } from "lucide-react";
@@ -20,7 +20,23 @@ const CARRIERS = ["Correo Argentino", "Andreani", "Otro"];
 const CorreoImportPanel = ({ sale, onChanged }: { sale: any; onChanged: () => void }) => {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<any>(null);
+  const [events, setEvents] = useState<any[] | null>(null);
   const status: string | null = sale.correo_import_status ?? null;
+  const { data: cs } = useQuery({ queryKey: ["correo-status"], queryFn: () => api.get<any>("/admin/correo/status"), staleTime: 60_000 });
+  const hasTracking = !!sale.tracking_code && /correo/i.test(sale.tracking_carrier ?? "");
+  const canLabel = !!cs?.paqar && hasTracking;
+
+  const loadTracking = async () => {
+    setBusy(true);
+    try {
+      const res = await api.get<any>(`/admin/sales/${sale.id}/correo-tracking`);
+      setEvents(res.events ?? []);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const run = async (dry: boolean) => {
     setBusy(true);
@@ -47,7 +63,8 @@ const CorreoImportPanel = ({ sale, onChanged }: { sale: any; onChanged: () => vo
       <p className="font-bold">📮 MiCorreo (Correo Argentino)</p>
       {status === "importado" && (
         <p className="text-green-700">
-          ✔ Importado a MiCorreo{sale.correo_imported_at ? ` el ${new Date(sale.correo_imported_at).toLocaleString("es-AR")}` : ""}. Imprimí el rótulo desde MiCorreo → Mis envíos.
+          ✔ Enviado a Correo Argentino{sale.correo_imported_at ? ` el ${new Date(sale.correo_imported_at).toLocaleString("es-AR")}` : ""}.
+          {canLabel ? ` N° de seguimiento: ${sale.tracking_code}.` : " Imprimí el rótulo desde MiCorreo → Mis envíos."}
         </p>
       )}
       {status === "importando" && <p className="text-muted-foreground">Importando…</p>}
@@ -60,8 +77,22 @@ const CorreoImportPanel = ({ sale, onChanged }: { sale: any; onChanged: () => vo
         {status !== "importado" && (
           <Button size="sm" variant="outline" disabled={busy} onClick={() => run(true)}>Ver datos a enviar</Button>
         )}
+        {canLabel && (
+          <Button size="sm" asChild>
+            <a href={`/api/admin/sales/${sale.id}/correo-label`} target="_blank" rel="noreferrer">🖨 Imprimir etiqueta</a>
+          </Button>
+        )}
+        {canLabel && <Button size="sm" variant="outline" disabled={busy} onClick={loadTracking}>Ver seguimiento</Button>}
         <a href="https://micorreo.correoargentino.com.ar/landing" target="_blank" rel="noreferrer" className="text-primary underline text-xs">Abrir MiCorreo</a>
       </div>
+      {events && (
+        <div className="rounded border p-2 text-xs space-y-1">
+          {events.length === 0 && <p className="text-muted-foreground">Todavía no hay movimientos registrados.</p>}
+          {events.map((e, i) => (
+            <p key={i}><strong>{e.status}</strong>{e.facility ? ` · ${e.facility}` : ""}{e.date ? ` · ${e.date}` : ""}</p>
+          ))}
+        </div>
+      )}
       {preview && <pre className="max-h-48 overflow-auto rounded bg-muted p-2 text-xs">{preview}</pre>}
     </div>
   );

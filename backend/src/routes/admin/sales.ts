@@ -4,7 +4,9 @@ import { db } from "../../db/index.js";
 import { sales, saleItems, customers } from "../../db/schema.js";
 import { sendShippingEmail } from "../../email/sendShippingEmail.js";
 import { markPurchasePaid } from "../../lib/purchaseTracking.js";
-import { autoImportSale, importSaleToMiCorreo } from "../../lib/correoImport.js";
+import { autoImportSale, importSaleToCorreo } from "../../lib/correoImport.js";
+import { checkAuth, getLabelPdf, getTracking, paqarCanCreateOrders, paqarConfigured, PaqarError } from "../../lib/paqar.js";
+import { micorreoConfigured } from "../../lib/micorreo.js";
 
 type LineItem = { product_id: string | null; product_name: string; unit_price: number; quantity: number; unit_cost: number };
 
@@ -113,10 +115,49 @@ export async function registerAdminSaleRoutes(app: FastifyInstance) {
   app.post("/sales/:id/correo-import", async (req) => {
     const { id } = req.params as { id: string };
     const { dry_run } = req.query as { dry_run?: string };
-    const result = await importSaleToMiCorreo(id, { dryRun: dry_run === "1" || dry_run === "true" });
+    const result = await importSaleToCorreo(id, { dryRun: dry_run === "1" || dry_run === "true" });
     // The payload goes out as a string: the global response serializer would otherwise
     // snake_case its keys and the preview would not match what is really sent to Correo.
-    return result.status === "preview" ? { status: "preview", payload_json: JSON.stringify(result.payload, null, 2) } : result;
+    return result.status === "preview" ? { status: "preview", via: result.via, payload_json: JSON.stringify(result.payload, null, 2) } : result;
+  });
+
+  // What the Correo integration can do right now (drives the buttons in the sale dialog).
+  app.get("/correo/status", async () => ({
+    micorreo: micorreoConfigured(),
+    paqar: paqarConfigured(),
+    can_create_orders: paqarCanCreateOrders(),
+    paqar_auth: paqarConfigured() ? await checkAuth() : null,
+  }));
+
+  const trackingOf = async (id: string) => {
+    const [row] = await db.select({ code: sales.trackingCode, carrier: sales.trackingCarrier }).from(sales).where(eq(sales.id, id)).limit(1);
+    return row?.code && /correo/i.test(row.carrier ?? "") ? row.code : null;
+  };
+
+  // Label PDF straight from Correo (PAQ.AR) for a sale that already has its tracking number.
+  app.get("/sales/:id/correo-label", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const code = await trackingOf(id);
+    if (!code) return reply.code(404).send({ error: "La venta no tiene número de seguimiento de Correo Argentino" });
+    try {
+      const pdf = await getLabelPdf(code);
+      return reply.header("Content-Type", "application/pdf").header("Content-Disposition", `inline; filename="correo-${code}.pdf"`).send(pdf);
+    } catch (err) {
+      req.log.error({ err }, "correo label failed");
+      return reply.code(err instanceof PaqarError && err.status >= 400 && err.status < 500 ? 400 : 502).send({ error: err instanceof Error ? err.message : "No se pudo obtener la etiqueta" });
+    }
+  });
+
+  app.get("/sales/:id/correo-tracking", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const code = await trackingOf(id);
+    if (!code) return reply.code(404).send({ error: "La venta no tiene número de seguimiento de Correo Argentino" });
+    try {
+      return { tracking_code: code, events: await getTracking(code) };
+    } catch (err) {
+      req.log.error({ err }, "correo tracking failed");
+      return reply.code(502).send({ error: err instanceof Error ? err.message : "No se pudo consultar el seguimiento" });
+    }
   });
 
   app.put("/sales/:id/status", async (req) => {
