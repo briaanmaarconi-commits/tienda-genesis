@@ -3,6 +3,7 @@ import { Facebook, Instagram, Mail, MapPin, MessageCircle, Phone } from "lucide-
 import { useSiteSettings } from "@/hooks/useShopData";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trackWhatsAppContact } from "@/lib/metaPixel";
+import { LEGAL } from "@/lib/legal";
 
 const Footer = () => {
   const { data: s, isLoading } = useSiteSettings();
@@ -38,20 +39,26 @@ const Footer = () => {
           <ul className="space-y-2 text-sm opacity-90">
             <li><Link to="/info" className="hover:underline">Envíos y pagos</Link></li>
             <li><Link to="/nosotros" className="hover:underline">Conocenos</Link></li>
+            <li><Link to="/privacidad" className="hover:underline">Política de privacidad</Link></li>
+            <li><Link to="/terminos" className="hover:underline">Términos y condiciones</Link></li>
+            <li><Link to="/devoluciones" className="hover:underline">Devoluciones y reembolsos</Link></li>
           </ul>
         </div>
         <div>
           <h4 className="mb-3 font-semibold">Contacto</h4>
           <ul className="space-y-2 text-sm opacity-90">
-            {s?.phone && <li className="flex items-center gap-2"><Phone size={16} /> {s.phone}</li>}
-            {s?.email && <li className="flex items-center gap-2"><Mail size={16} /> {s.email}</li>}
-            {s?.address && <li className="flex items-center gap-2"><MapPin size={16} /> {s.address}</li>}
+            <li className="flex items-center gap-2"><Phone size={16} /> <a href={`tel:${LEGAL.phoneHref}`} className="hover:underline">{LEGAL.phone}</a></li>
+            <li className="flex items-center gap-2"><Mail size={16} /> <a href={`mailto:${LEGAL.email}`} className="hover:underline">{LEGAL.email}</a></li>
+            <li className="flex items-center gap-2"><MapPin size={16} /> {LEGAL.address}</li>
           </ul>
         </div>
       </div>
       <div className="border-t border-primary-foreground/20">
         <div className="container py-4 text-center text-xs opacity-80">
-          © {new Date().getFullYear()} {siteName}. Todos los derechos reservados.
+          <p>© {new Date().getFullYear()} {siteName}. Todos los derechos reservados.</p>
+          <p className="mt-1">
+            {LEGAL.brand} · Razón social: {LEGAL.legalName} ({LEGAL.legalNameAfip}) · CUIT {LEGAL.cuit} · {LEGAL.address} · Tel. {LEGAL.phone}
+          </p>
         </div>
       </div>
     </footer>

@@ -19,6 +19,9 @@ const OffersPage = lazy(() => import("./pages/OffersPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AboutPage = lazy(() => import("./pages/InfoPages").then((m) => ({ default: m.AboutPage })));
 const InfoPage = lazy(() => import("./pages/InfoPages").then((m) => ({ default: m.InfoPage })));
+const PrivacyPage = lazy(() => import("./pages/LegalPages").then((m) => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import("./pages/LegalPages").then((m) => ({ default: m.TermsPage })));
+const RefundsPage = lazy(() => import("./pages/LegalPages").then((m) => ({ default: m.RefundsPage })));
 const PriceListPage = lazy(() => import("./pages/InfoPages").then((m) => ({ default: m.PriceListPage })));
 
 // Admin — lazy loaded (heavy and rarely visited)
@@ -103,6 +106,9 @@ const App = () => (
                   <Route path="/info" element={<InfoPage />} />
                   <Route path="/promos" element={<OffersPage />} />
                   <Route path="/nosotros" element={<AboutPage />} />
+                  <Route path="/privacidad" element={<PrivacyPage />} />
+                  <Route path="/terminos" element={<TermsPage />} />
+                  <Route path="/devoluciones" element={<RefundsPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
               </Routes>
