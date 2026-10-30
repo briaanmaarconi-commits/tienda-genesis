@@ -30,6 +30,7 @@ import { registerAdminStickerCatalogRoutes } from "./routes/admin/sticker-catalo
 import { registerAdminSaleRoutes } from "./routes/admin/sales.js";
 import { registerAdminSharedCartRoutes } from "./routes/admin/shared-carts.js";
 import { registerSharedCartRoutes } from "./routes/shared-carts.js";
+import { registerBotRoutes } from "./routes/bot.js";
 import { registerCheckoutRoutes } from "./routes/checkout.js";
 import { registerMercadoPagoRoutes } from "./routes/mercadopago.js";
 import { deepSnakeCase } from "./lib/snakeCase.js";
@@ -56,6 +57,7 @@ await registerRecentPurchaseRoutes(app);
 await registerShippingRoutes(app);
 await registerStorage(app);
 await registerSharedCartRoutes(app);
+await registerBotRoutes(app);
 await registerCheckoutRoutes(app);
 await registerMercadoPagoRoutes(app);
 

@@ -52,6 +52,10 @@ const schema = z.object({
   STORAGE_DIR: z.string().min(1),
   PUBLIC_ORIGIN: z.string().url(),
   FRONTEND_ORIGIN: z.string().url(),
+
+  // Key the WhatsApp agent uses to build shared carts (routes/bot.ts).
+  // Empty turns the bot route off.
+  BOT_API_KEY: z.string().refine((v) => v === "" || v.length >= 32, "BOT_API_KEY needs 32+ chars").default(""),
 });
 
 export const env = schema.parse(process.env);
