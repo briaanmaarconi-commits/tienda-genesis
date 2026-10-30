@@ -46,6 +46,8 @@ const CartPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [transfer, setTransfer] = useState<any>(null);
+  // Shown in the WhatsApp messages so the bot can find the order.
+  const [orderNumber, setOrderNumber] = useState<number | null>(null);
 
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<{ code: string; discount: number } | null>(null);
@@ -96,7 +98,7 @@ const CartPage = () => {
         };
       });
 
-      const order = await api.post<{ sale_id: string; transfer: any; error?: string }>("/checkout", {
+      const order = await api.post<{ sale_id: string; order_number?: number; transfer: any; error?: string }>("/checkout", {
         customer: { name: form.name, phone: form.phone, email: form.email || null, address: form.address || null },
         sale: {
           payment_method_id: paymentId,
@@ -122,6 +124,8 @@ const CartPage = () => {
       sessionStorage.removeItem(SHARED_CART_TOKEN_KEY);
       const sale = { id: order.sale_id };
       if (order.transfer) setTransfer(order.transfer);
+      if (order.order_number) setOrderNumber(order.order_number);
+      const pedido = order.order_number ? ` #${order.order_number}` : "";
 
       if (pay?.provider === "mercadopago") {
         const mp = await api.post<{ init_point?: string }>("/mercadopago/create-preference", { sale_id: sale.id });
@@ -136,7 +140,7 @@ const CartPage = () => {
 
       if (settings?.whatsapp) {
         const lines = items.map((it) => `• ${it.product.name}${it.product.label ? ` (${it.product.label})` : ""} × ${it.qty} = ${formatPrice(it.product.price * it.qty)}`).join("\n");
-        const msg = `Nuevo pedido\n${form.name} (${form.phone})\n\n${lines}\n\nEnvío: ${selectedQuote.method_name}${branchName ? ` (${branchName})` : ""}\nTotal: ${formatPrice(grandTotal)}`;
+        const msg = `Nuevo pedido${pedido}\n${form.name} (${form.phone})\n\n${lines}\n\nEnvío: ${selectedQuote.method_name}${branchName ? ` (${branchName})` : ""}\nTotal: ${formatPrice(grandTotal)}`;
         window.open(`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`, "_blank");
       }
 
@@ -150,7 +154,7 @@ const CartPage = () => {
   if (done) {
     const isTransfer = pay?.provider === "manual" && /transfer/i.test(pay?.name ?? "");
     const wa = (settings?.whatsapp ?? "").replace(/\D/g, "");
-    const waMsg = encodeURIComponent(`Hola! Acabo de hacer un pedido a nombre de ${form.name} por ${formatPrice(grandTotal)}. Te paso el comprobante de transferencia.`);
+    const waMsg = encodeURIComponent(`Hola! Acabo de hacer el pedido${orderNumber ? ` #${orderNumber}` : ""} a nombre de ${form.name} por ${formatPrice(grandTotal)}. Te paso el comprobante de transferencia.`);
     return (
       <div className="container py-16">
         <div className="mx-auto max-w-xl text-center">

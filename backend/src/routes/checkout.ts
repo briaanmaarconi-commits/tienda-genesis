@@ -84,7 +84,7 @@ export async function registerCheckoutRoutes(app: FastifyInstance) {
     const surcharge = Math.max(0, sale.surcharge || 0);
     const total = Math.max(0, subtotal - discountAmount) + shippingCost + surcharge;
 
-    const saleId = await db.transaction(async (tx) => {
+    const { id: saleId, orderNumber } = await db.transaction(async (tx) => {
       if (shared_cart_token?.trim()) {
         const locked = await tx.execute(sql`SELECT id FROM shared_carts WHERE token = ${shared_cart_token.trim()} AND status = 'pendiente' AND (expires_at IS NULL OR expires_at > now()) FOR UPDATE`);
         if (!locked.rows.length) throw Object.assign(new Error("Este enlace ya fue utilizado o venció."), { statusCode: 409 });
@@ -183,7 +183,7 @@ export async function registerCheckoutRoutes(app: FastifyInstance) {
         origin: env.FRONTEND_ORIGIN, contents,
       }));
 
-      return saleRow.id;
+      return { id: saleRow.id, orderNumber: saleRow.orderNumber };
     });
 
     try {
@@ -212,6 +212,6 @@ export async function registerCheckoutRoutes(app: FastifyInstance) {
       req.log.error({ err }, "transfer details lookup failed");
     }
 
-    return { sale_id: saleId, total, discount_amount: discountAmount, coupon_code: appliedCouponCode, transfer };
+    return { sale_id: saleId, order_number: orderNumber, total, discount_amount: discountAmount, coupon_code: appliedCouponCode, transfer };
   });
 }

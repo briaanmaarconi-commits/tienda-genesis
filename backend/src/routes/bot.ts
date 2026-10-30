@@ -1,8 +1,9 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { sharedCarts } from "../db/schema.js";
+import { customers, paymentMethods, saleItems, sales, sharedCarts } from "../db/schema.js";
 import { env } from "../env.js";
 
 // The WhatsApp agent builds shared carts here, the same ones an admin builds
@@ -33,6 +34,50 @@ function validKey(req: FastifyRequest): boolean {
 }
 
 export async function registerBotRoutes(app: FastifyInstance) {
+  // The checkout sends customers to WhatsApp with "pedido #N"; the agent looks
+  // the order up here to check a transfer receipt against it. Read-only: the
+  // team still marks the sale as paid in the admin.
+  app.get<{ Params: { number: string } }>("/api/bot/orders/:number", async (req, reply) => {
+    if (!validKey(req)) {
+      reply.code(401).send({ error: "unauthorized" });
+      return;
+    }
+    const number = Number(req.params.number);
+    if (!Number.isInteger(number) || number < 1) {
+      reply.code(400).send({ error: "invalid_number" });
+      return;
+    }
+    const [sale] = await db
+      .select({
+        id: sales.id,
+        orderNumber: sales.orderNumber,
+        status: sales.status,
+        total: sales.total,
+        shippingCost: sales.shippingCost,
+        createdAt: sales.createdAt,
+        mpStatus: sales.mpStatus,
+        customerName: customers.name,
+        customerPhone: customers.phone,
+        paymentMethod: paymentMethods.name,
+        paymentProvider: paymentMethods.provider,
+      })
+      .from(sales)
+      .leftJoin(customers, eq(customers.id, sales.customerId))
+      .leftJoin(paymentMethods, eq(paymentMethods.id, sales.paymentMethodId))
+      .where(eq(sales.orderNumber, number))
+      .limit(1);
+    if (!sale) {
+      reply.code(404).send({ error: "not_found" });
+      return;
+    }
+    const items = await db
+      .select({ name: saleItems.productName, quantity: saleItems.quantity, subtotal: saleItems.subtotal })
+      .from(saleItems)
+      .where(eq(saleItems.saleId, sale.id));
+    const { id: _id, ...order } = sale;
+    return { ...order, items };
+  });
+
   app.post("/api/bot/shared-carts", async (req, reply) => {
     if (!validKey(req)) {
       reply.code(401).send({ error: "unauthorized" });
