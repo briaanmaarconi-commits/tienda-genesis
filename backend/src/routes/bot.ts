@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { and, asc, eq, gte, inArray, lt, or } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { customers, paymentMethods, saleItems, sales, sharedCarts } from "../db/schema.js";
 import { env } from "../env.js";
@@ -109,6 +109,21 @@ export async function registerBotRoutes(app: FastifyInstance) {
         ...sale, items: items.filter(i => i.saleId === id).map(({ saleId, ...item }) => item)
       }))
     };
+  });
+
+  // Read-only purchase guard: do not send sales reminders to an existing buyer.
+  app.get<{ Querystring: { phone: string } }>("/api/bot/follow-up-status", async (req, reply) => {
+    if (!validKey(req)) return reply.code(401).send({ error: "unauthorized" });
+    const phone = String(req.query.phone || "").replace(/\D/g, "").slice(-10);
+    if (phone.length !== 10) return reply.code(400).send({ error: "invalid_phone" });
+    const [purchase] = await db.select({ id: sales.id }).from(sales)
+      .innerJoin(customers, eq(customers.id, sales.customerId))
+      .where(and(
+        sql`right(regexp_replace(coalesce(${customers.phone}, ''), '[^0-9]', '', 'g'), 10) = ${phone}`,
+        or(inArray(sales.status, ["abonado", "confirmada", "enviada", "entregada"]),
+           eq(sales.mpStatus, "approved"))
+      )).limit(1);
+    return { has_purchase: !!purchase };
   });
 
   app.post("/api/bot/shared-carts", async (req, reply) => {
