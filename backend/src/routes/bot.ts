@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lt, or } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { customers, paymentMethods, saleItems, sales, sharedCarts } from "../db/schema.js";
 import { env } from "../env.js";
@@ -76,6 +76,39 @@ export async function registerBotRoutes(app: FastifyInstance) {
       .where(eq(saleItems.saleId, sale.id));
     const { id: _id, ...order } = sale;
     return { ...order, items };
+  });
+
+
+  // Private operational digest for the owner's WhatsApp report. Never exposes
+  // addresses, payment credentials, costs or customer documents.
+  app.get<{ Querystring: { from: string; to: string } }>("/api/bot/daily-summary", async (req, reply) => {
+    if (!validKey(req)) return reply.code(401).send({ error: "unauthorized" });
+    const parsed = z.object({ from: z.string().datetime({ offset: true }), to: z.string().datetime({ offset: true }) }).safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_period" });
+    const from = new Date(parsed.data.from);
+    const to = new Date(parsed.data.to);
+    if (to <= from || to.getTime() - from.getTime() > 48 * 3600000)
+      return reply.code(400).send({ error: "invalid_period" });
+    const rows = await db.select({
+      id: sales.id, orderNumber: sales.orderNumber, status: sales.status,
+      total: sales.total, createdAt: sales.createdAt, updatedAt: sales.updatedAt,
+      customerName: customers.name,
+    }).from(sales).leftJoin(customers, eq(customers.id, sales.customerId))
+      .where(and(lt(sales.createdAt, to.toISOString()), or(
+        and(gte(sales.createdAt, from.toISOString()), lt(sales.createdAt, to.toISOString())),
+        and(gte(sales.updatedAt, from.toISOString()), lt(sales.updatedAt, to.toISOString())),
+        inArray(sales.status, ["pendiente", "abonado", "confirmada"])
+      ))).orderBy(asc(sales.orderNumber)).limit(501);
+    const selected = rows.slice(0, 500);
+    const items = selected.length ? await db.select({
+      saleId: saleItems.saleId, name: saleItems.productName, quantity: saleItems.quantity,
+    }).from(saleItems).where(inArray(saleItems.saleId, selected.map(s => s.id))) : [];
+    return {
+      from: from.toISOString(), to: to.toISOString(), truncated: rows.length > 500,
+      orders: selected.map(({ id, ...sale }) => ({
+        ...sale, items: items.filter(i => i.saleId === id).map(({ saleId, ...item }) => item)
+      }))
+    };
   });
 
   app.post("/api/bot/shared-carts", async (req, reply) => {
