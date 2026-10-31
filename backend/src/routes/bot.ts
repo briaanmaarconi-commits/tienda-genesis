@@ -3,7 +3,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { and, asc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { customers, paymentMethods, saleItems, sales, sharedCarts } from "../db/schema.js";
+import { customers, paymentMethods, products as catalogProducts, saleItems, sales, sharedCarts } from "../db/schema.js";
 import { env } from "../env.js";
 
 // The WhatsApp agent builds shared carts here, the same ones an admin builds
@@ -124,6 +124,41 @@ export async function registerBotRoutes(app: FastifyInstance) {
            eq(sales.mpStatus, "approved"))
       )).limit(1);
     return { has_purchase: !!purchase };
+  });
+
+
+  // The exact checkout linked to a bot cart, not an unrelated order number.
+  app.get<{ Params: { token: string } }>("/api/bot/shared-carts/:token/status", async (req, reply) => {
+    if (!validKey(req)) return reply.code(401).send({ error: "unauthorized" });
+    if (!/^[A-Za-z0-9_-]{8,64}$/.test(req.params.token))
+      return reply.code(400).send({ error: "invalid_token" });
+    const [cart] = await db.select().from(sharedCarts).where(eq(sharedCarts.token, req.params.token)).limit(1);
+    if (!cart) return reply.code(404).send({ error: "not_found" });
+    if (!cart.saleId) return { purchased: false, paid: false, cart_status: cart.status };
+    const [order] = await db.select({
+      number: sales.orderNumber, status: sales.status, total: sales.total,
+      mpStatus: sales.mpStatus, phone: customers.phone,
+    }).from(sales).leftJoin(customers, eq(customers.id, sales.customerId))
+      .where(eq(sales.id, cart.saleId)).limit(1);
+    if (!order) return reply.code(409).send({ error: "order_missing" });
+    const sold = await db.select({
+      slug: catalogProducts.slug, name: saleItems.productName, price: saleItems.unitPrice, qty: saleItems.quantity,
+      addons: saleItems.addons,
+    }).from(saleItems).leftJoin(catalogProducts, eq(catalogProducts.id, saleItems.productId))
+      .where(eq(saleItems.saleId, cart.saleId));
+    const options = (addons: unknown): string[] => Array.isArray(addons)
+      ? addons.map((a: any) => String(a.option_id || "")).sort() : [];
+    const key = (slug: unknown, price: unknown, qty: unknown, addons: unknown, name: unknown) =>
+      JSON.stringify([slug, Number(price).toFixed(2), Number(qty), options(addons), name]);
+    const expected = (Array.isArray(cart.items) ? cart.items : []).map((i: any) =>
+      key(i.product?.slug, i.product?.price, i.qty, i.product?.addons, `${i.product?.name}${i.product?.label ? ` (${i.product.label})` : ""}`)).sort();
+    const actual = sold.map(i => key(i.slug, i.price, i.qty, i.addons, i.name)).sort();
+    return {
+      purchased: true,
+      paid: order.status !== "cancelada" && (order.status === "abonado" || order.mpStatus === "approved"),
+      items_match: expected.length > 0 && JSON.stringify(expected) === JSON.stringify(actual),
+      order_number: order.number, status: order.status, total: order.total, customer_phone: order.phone,
+    };
   });
 
   app.post("/api/bot/shared-carts", async (req, reply) => {
